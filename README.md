@@ -10,7 +10,7 @@
 [![Tests](https://img.shields.io/badge/Tests-17%20Passed-brightgreen.svg)]()
 [![OWASP Aligned](https://img.shields.io/badge/OWASP-Aligned%20Design-blue.svg)]()
 
-[🎮 **Interactive Demo**](file:///f:/My%20Projects/kd-screen-guard/demo/index.html) | [📖 **Documentation**](https://github.com/kd-screen-guard/kd-screen-guard#readme)
+[🎮 **Live Interactive Demo**](https://khvichadev.github.io/kd-screen-guard/demo/) | [📖 **Documentation**](https://github.com/KhvichaDev/kd-screen-guard#readme)
 
 `kd-screen-guard` is a lightweight, zero-dependency JavaScript/TypeScript security library designed to protect sensitive enterprise applications with a hardened, tamper-resistant lock screen overlay. Built with **WebAuthn biometrics**, **Webcam Intruder Snapshots**, **Off-Main-Thread Web Worker cryptography**, **PBKDF2 salted key derivation**, **built-in hardware Web Audio sirens**, and **native React/Vue 3 wrappers**.
 
@@ -238,7 +238,6 @@ const { isLocked, lock } = useScreenGuard({
 | `antiTamper` | `boolean` | `true` | Enables self-healing MutationObserver DOM protection. |
 | `enableAudioAlarm` | `boolean` | `false` | Enable built-in Web Audio API synthesized hardware siren. |
 | `alarmSoundUrl` | `string` | — | Custom MP3 sound file URL for alarm (overrides built-in siren). |
-| `enableSpeechAlarm` | `boolean` | `false` | Enable Text-to-Speech audio alarm playback. |
 | `speechMessage` | `string` | `'Security Alert'` | Text message for Text-to-Speech alarm. |
 | `securityQuestion` | `string` | — | Recovery question for password reset flow. |
 | `securityAnswerHash` | `string` | — | Pre-hashed recovery answer. |
