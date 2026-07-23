@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../dist/kd_styles.css">
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Google Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #121212;
             color: #e0e0e0;
             margin: 0;
@@ -74,9 +74,9 @@
         </div>
 
         <div class="btn-group">
-            <button id="btn-lock">🔒 Lock Screen Now</button>
-            <button id="btn-biometric">👆 Test WebAuthn Registration</button>
-            <button id="btn-siren" class="btn-danger">🚨 Test Siren Sound</button>
+            <button type="button" id="btn-lock">🔒 Lock Screen Now</button>
+            <button type="button" id="btn-biometric">👆 Test WebAuthn Registration</button>
+            <button type="button" id="btn-siren" class="btn-danger">🚨 Test Siren Sound</button>
         </div>
 
         <div id="header-actions" style="margin-top: 30px;">
@@ -85,41 +85,50 @@
     </div>
 
     <script type="module">
-        import ScreenGuard from '../dist/index.mjs';
+        import ScreenGuardModule, { ScreenGuard as NamedScreenGuard } from '../dist/index.mjs';
+        const ScreenGuardClass = ScreenGuardModule || NamedScreenGuard;
 
-        const guard = new ScreenGuard({
-            password: '1234',
-            salt: 'demo-salt-2026',
-            autoLockMinutes: 3,
-            enableWebAuthn: true,
-            enableIntruderSnapshot: true,
-            enableAudioAlarm: true,
-            onStateChange: (state) => {
-                const statusEl = document.getElementById('status-text');
-                if (statusEl) {
-                    statusEl.textContent = state.isLocked ? 'Locked 🔒' : 'Unlocked 🔓';
-                }
+        async function initDemo() {
+            try {
+                const guard = new ScreenGuardClass({
+                    password: '1234',
+                    salt: 'demo-salt-2026',
+                    autoLockMinutes: 3,
+                    enableWebAuthn: true,
+                    enableIntruderSnapshot: true,
+                    enableAudioAlarm: true,
+                    onStateChange: (state) => {
+                        const statusEl = document.getElementById('status-text');
+                        if (statusEl) {
+                            statusEl.textContent = state.isLocked ? 'Locked 🔒' : 'Unlocked 🔓';
+                        }
+                    }
+                });
+
+                await guard.init();
+                guard.attachLockButton('#header-actions');
+
+                document.getElementById('btn-lock').addEventListener('click', () => guard.lock());
+
+                document.getElementById('btn-biometric').addEventListener('click', async () => {
+                    if (await ScreenGuardClass.isBiometricsSupported()) {
+                        const credId = await ScreenGuardClass.registerBiometrics('Demo User');
+                        alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
+                    } else {
+                        alert('WebAuthn biometrics not supported on this device/browser.');
+                    }
+                });
+
+                document.getElementById('btn-siren').addEventListener('click', () => {
+                    alert('Triggering test siren...');
+                    guard.lock();
+                });
+            } catch (err) {
+                console.error('Failed to initialize ScreenGuard demo:', err);
             }
-        });
+        }
 
-        await guard.init();
-        guard.attachLockButton('#header-actions');
-
-        document.getElementById('btn-lock').onclick = () => guard.lock();
-
-        document.getElementById('btn-biometric').onclick = async () => {
-            if (await ScreenGuard.isBiometricsSupported()) {
-                const credId = await ScreenGuard.registerBiometrics('Demo User');
-                alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
-            } else {
-                alert('WebAuthn biometrics not supported on this device/browser.');
-            }
-        };
-
-        document.getElementById('btn-siren').onclick = () => {
-            alert('Triggering test siren...');
-            guard.lock();
-        };
+        initDemo();
     </script>
 </body>
 </html>
