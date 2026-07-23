@@ -84,12 +84,20 @@
         </div>
     </div>
 
-    <script type="module">
-        import ScreenGuardModule, { ScreenGuard as NamedScreenGuard } from '../dist/index.mjs';
-        const ScreenGuardClass = ScreenGuardModule || NamedScreenGuard;
+    <!-- Standalone Global Browser Bundle -->
+    <script src="../dist/index.global.js"></script>
 
-        async function initDemo() {
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
             try {
+                const lib = window.ScreenGuardLib || window;
+                const ScreenGuardClass = lib.ScreenGuard || lib.default;
+
+                if (!ScreenGuardClass) {
+                    console.error('ScreenGuard library not found in window object. Available keys:', Object.keys(lib));
+                    return;
+                }
+
                 const guard = new ScreenGuardClass({
                     password: '1234',
                     salt: 'demo-salt-2026',
@@ -97,7 +105,7 @@
                     enableWebAuthn: true,
                     enableIntruderSnapshot: true,
                     enableAudioAlarm: true,
-                    onStateChange: (state) => {
+                    onStateChange: function (state) {
                         const statusEl = document.getElementById('status-text');
                         if (statusEl) {
                             statusEl.textContent = state.isLocked ? 'Locked 🔒' : 'Unlocked 🔓';
@@ -108,27 +116,37 @@
                 await guard.init();
                 guard.attachLockButton('#header-actions');
 
-                document.getElementById('btn-lock').addEventListener('click', () => guard.lock());
+                const btnLock = document.getElementById('btn-lock');
+                const btnBiometric = document.getElementById('btn-biometric');
+                const btnSiren = document.getElementById('btn-siren');
 
-                document.getElementById('btn-biometric').addEventListener('click', async () => {
-                    if (await ScreenGuardClass.isBiometricsSupported()) {
-                        const credId = await ScreenGuardClass.registerBiometrics('Demo User');
-                        alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
-                    } else {
-                        alert('WebAuthn biometrics not supported on this device/browser.');
-                    }
-                });
+                if (btnLock) {
+                    btnLock.addEventListener('click', function () {
+                        guard.lock();
+                    });
+                }
 
-                document.getElementById('btn-siren').addEventListener('click', () => {
-                    alert('Triggering test siren...');
-                    guard.lock();
-                });
+                if (btnBiometric) {
+                    btnBiometric.addEventListener('click', async function () {
+                        if (await ScreenGuardClass.isBiometricsSupported()) {
+                            const credId = await ScreenGuardClass.registerBiometrics('Demo User');
+                            alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
+                        } else {
+                            alert('WebAuthn biometrics not supported on this device/browser.');
+                        }
+                    });
+                }
+
+                if (btnSiren) {
+                    btnSiren.addEventListener('click', function () {
+                        alert('Triggering test siren...');
+                        guard.lock();
+                    });
+                }
             } catch (err) {
                 console.error('Failed to initialize ScreenGuard demo:', err);
             }
-        }
-
-        initDemo();
+        });
     </script>
 </body>
 </html>

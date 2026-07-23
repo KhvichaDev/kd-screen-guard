@@ -28,7 +28,7 @@
     "demo"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/react/index.ts src/vue/index.ts --format cjs,esm --dts --clean && node -e \"require('fs').copyFileSync('src/ui/kd_styles.css', 'dist/kd_styles.css')\"",
+    "build": "tsup src/index.ts src/react/index.ts src/vue/index.ts --format cjs,esm,iife --global-name ScreenGuardLib --dts --clean && node -e \"require('fs').copyFileSync('src/ui/kd_styles.css', 'dist/kd_styles.css')\"",
     "dev": "tsup src/index.ts src/react/index.ts src/vue/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run"
   },
