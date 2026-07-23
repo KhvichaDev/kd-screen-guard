@@ -1,0 +1,73 @@
+{
+  "name": "kd-screen-guard",
+  "version": "1.0.0",
+  "description": "Zero-dependency, tamper-resistant, high-security lock screen overlay library with PBKDF2 salted hashing, intruder webcam snapshot review, Web Audio API siren, WebAuthn biometrics, and framework hooks.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.mjs",
+      "require": "./dist/vue/index.js"
+    },
+    "./css": "./dist/kd_styles.css"
+  },
+  "files": [
+    "dist",
+    "demo"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/react/index.ts src/vue/index.ts --format cjs,esm --dts --clean && node -e \"require('fs').copyFileSync('src/ui/kd_styles.css', 'dist/kd_styles.css')\"",
+    "dev": "tsup src/index.ts src/react/index.ts src/vue/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "screen-guard",
+    "lock-screen",
+    "security",
+    "anti-tamper",
+    "auto-lock",
+    "pbkdf2",
+    "webauthn",
+    "touch-id",
+    "face-id",
+    "intruder-snapshot",
+    "web-audio-siren",
+    "react-hook",
+    "vue-composable"
+  ],
+  "author": "Antigravity Senior Dev AI",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "happy-dom": "^14.0.0",
+    "react": "^18.3.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.5.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+    "vue": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  }
+}

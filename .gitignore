@@ -1,0 +1,10 @@
+node_modules
+dist
+.ds_store
+*.log
+
+# Private documentation records
+ADR.md
+BUSINESS_LOG.md
+WORK_LOG.md
+TROUBLESHOOTING.md
