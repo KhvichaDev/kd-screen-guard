@@ -1,6 +1,6 @@
 /**
  * Entry point for kd-screen-guard library.
- * Exports public API, ScreenGuard manager class, WebAuthn Biometrics, Off-main-thread Web Worker, SHA-256 and PBKDF2 hashing helpers, and framework adapters.
+ * Exports public API, ScreenGuard manager class, WebAuthn Biometrics, Off-main-thread Web Worker, and SHA-256 / PBKDF2 hashing helpers.
  */
 
 import { kd_ScreenGuardOptions } from './types';
@@ -11,8 +11,6 @@ import { kd_WebAuthnManager } from './guard/kd_webauthn';
 export * from './types';
 export { kd_sha256, kd_pbkdf2 } from './core/kd_crypto';
 export { kd_LockEngine } from './core/kd_lock_engine';
-export { useScreenGuard as useReactScreenGuard } from './react/index';
-export { useScreenGuard as useVueScreenGuard } from './vue/index';
 
 export class ScreenGuard {
     private kd_engine: kd_LockEngine;
