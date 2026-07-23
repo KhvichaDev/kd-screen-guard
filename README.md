@@ -292,4 +292,4 @@ guard.destroy();                         // Clean up event listeners and timers
 
 ## 📄 License
 
-MIT © Antigravity Senior Dev AI Team
+MIT License © KhvichaDev
