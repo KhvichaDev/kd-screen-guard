@@ -1,4 +1,4 @@
-# 🛡️ KD-Screen-Guard
+# 🛡️ KD Screen Guard
 
 > **Zero-Dependency, Tamper-Resistant, High-Security Lock Screen Overlay & Biometric Guard for Enterprise Web Applications.**
 
