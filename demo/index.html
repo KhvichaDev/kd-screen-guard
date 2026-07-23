@@ -62,6 +62,13 @@
             border-radius: 8px;
             border-left: 4px solid #a8c7fa;
         }
+        #debug-log {
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #f2b8b5;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -70,7 +77,8 @@
         <p>Interactive demonstration of WebAuthn Biometrics, Intruder Webcam Snapshot, Off-Main-Thread Crypto, and Built-in Siren.</p>
 
         <div class="status-box">
-            <strong>Status:</strong> <span id="status-text">Initialized & Unlocked 🔓</span>
+            <strong>Status:</strong> <span id="status-text">Initializing...</span>
+            <div id="debug-log"></div>
         </div>
 
         <div class="btn-group">
@@ -88,13 +96,22 @@
     <script src="../dist/index.global.js"></script>
 
     <script>
+        function logDebug(msg) {
+            const el = document.getElementById('debug-log');
+            if (el) el.textContent += msg + '\n';
+        }
+
+        window.onerror = function (msg, url, line) {
+            logDebug('Global Error: ' + msg + ' at line ' + line);
+        };
+
         document.addEventListener('DOMContentLoaded', async function () {
             try {
                 const lib = window.ScreenGuardLib || window;
                 const ScreenGuardClass = lib.ScreenGuard || lib.default;
 
                 if (!ScreenGuardClass) {
-                    console.error('ScreenGuard library not found in window object. Available keys:', Object.keys(lib));
+                    logDebug('ScreenGuard library class not found in window.ScreenGuardLib.');
                     return;
                 }
 
@@ -116,35 +133,46 @@
                 await guard.init();
                 guard.attachLockButton('#header-actions');
 
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) statusEl.textContent = 'Initialized & Unlocked 🔓';
+
                 const btnLock = document.getElementById('btn-lock');
                 const btnBiometric = document.getElementById('btn-biometric');
                 const btnSiren = document.getElementById('btn-siren');
 
                 if (btnLock) {
-                    btnLock.addEventListener('click', function () {
-                        guard.lock();
-                    });
+                    btnLock.onclick = function () {
+                        try {
+                            guard.lock();
+                        } catch (err) {
+                            logDebug('Lock error: ' + err.message);
+                        }
+                    };
                 }
 
                 if (btnBiometric) {
-                    btnBiometric.addEventListener('click', async function () {
-                        if (await ScreenGuardClass.isBiometricsSupported()) {
-                            const credId = await ScreenGuardClass.registerBiometrics('Demo User');
-                            alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
-                        } else {
-                            alert('WebAuthn biometrics not supported on this device/browser.');
+                    btnBiometric.onclick = async function () {
+                        try {
+                            if (await ScreenGuardClass.isBiometricsSupported()) {
+                                const credId = await ScreenGuardClass.registerBiometrics('Demo User');
+                                alert(credId ? 'Biometric Registered Successfully!' : 'Biometric Registration Canceled.');
+                            } else {
+                                alert('WebAuthn biometrics not supported on this device/browser.');
+                            }
+                        } catch (err) {
+                            logDebug('Biometrics error: ' + err.message);
                         }
-                    });
+                    };
                 }
 
                 if (btnSiren) {
-                    btnSiren.addEventListener('click', function () {
+                    btnSiren.onclick = function () {
                         alert('Triggering test siren...');
                         guard.lock();
-                    });
+                    };
                 }
             } catch (err) {
-                console.error('Failed to initialize ScreenGuard demo:', err);
+                logDebug('Init Error: ' + err.message + '\nStack: ' + err.stack);
             }
         });
     </script>
