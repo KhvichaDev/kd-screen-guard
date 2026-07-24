@@ -694,7 +694,7 @@ var ScreenGuardLib = (() => {
 
   // src/guard/kd_alarm_system.ts
   var kd_AlarmSystem = class {
-    constructor(speechEnabled = true, speechMessage = "Security Alert! System Locked!", audioEnabled = false, alarmSoundUrl) {
+    constructor(speechEnabled = true, speechMessage = "Security Alert! System Locked!", audioEnabled = true, alarmSoundUrl) {
       this.kd_activeAudio = null;
       this.kd_audioContext = null;
       this.kd_oscillator = null;
@@ -751,7 +751,7 @@ var ScreenGuardLib = (() => {
       }
       this.kd_removeInteractionTrap();
     }
-    kd_startBuiltInSiren(forceTrap) {
+    async kd_startBuiltInSiren(forceTrap) {
       if (typeof window === "undefined") return;
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -764,9 +764,12 @@ var ScreenGuardLib = (() => {
             this.kd_enableInteractionTrap("");
             return;
           }
-          this.kd_audioContext.resume().catch(() => {
+          try {
+            await this.kd_audioContext.resume();
+          } catch {
             this.kd_enableInteractionTrap("");
-          });
+            return;
+          }
         }
         if (this.kd_isSirenActive) return;
         this.kd_isSirenActive = true;
@@ -782,7 +785,7 @@ var ScreenGuardLib = (() => {
         lfo.connect(osc.frequency);
         osc.connect(masterGain);
         masterGain.connect(this.kd_audioContext.destination);
-        masterGain.gain.setValueAtTime(0.2, this.kd_audioContext.currentTime);
+        masterGain.gain.setValueAtTime(0.3, this.kd_audioContext.currentTime);
         lfo.start();
         osc.start();
         this.kd_oscillator = osc;
@@ -834,18 +837,19 @@ var ScreenGuardLib = (() => {
           this.kd_voicesChangedHandler = null;
         }
         if (!this.kd_isSpeechActive || this.kd_speechErrorCount >= 3) return;
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(this.kd_speechMessage);
         utterance.lang = "en-US";
-        utterance.rate = 1.2;
+        utterance.rate = 1.1;
         utterance.volume = 1;
-        utterance.pitch = 1.2;
+        utterance.pitch = 1.1;
         utterance.onend = () => {
           this.kd_speechErrorCount = 0;
           if (this.kd_speechLoopFallbackTimer) {
             clearTimeout(this.kd_speechLoopFallbackTimer);
             this.kd_speechLoopFallbackTimer = null;
           }
-          if (this.kd_isSpeechActive) setTimeout(speak, 300);
+          if (this.kd_isSpeechActive) setTimeout(speak, 500);
         };
         utterance.onerror = (evt) => {
           if (evt && evt.error === "canceled") return;
@@ -861,7 +865,7 @@ var ScreenGuardLib = (() => {
           if (this.kd_isSpeechActive) {
             speak();
           }
-        }, 4500);
+        }, 5e3);
       };
       if (window.speechSynthesis.getVoices().length === 0) {
         this.kd_voicesChangedHandler = () => speak();
@@ -1552,8 +1556,8 @@ var ScreenGuardLib = (() => {
         delete this.kd_options.password;
       }
       this.kd_alarmSystem = new kd_AlarmSystem(
-        this.kd_options.enableSpeechAlarm ?? false,
-        this.kd_options.speechMessage,
+        this.kd_options.enableSpeechAlarm ?? (this.kd_options.enableAudioAlarm ?? false),
+        this.kd_options.speechMessage || "Security Alert! System Locked!",
         this.kd_options.enableAudioAlarm ?? false,
         this.kd_options.alarmSoundUrl
       );
@@ -1583,15 +1587,21 @@ var ScreenGuardLib = (() => {
         this.kd_options.channelName
       );
       if (this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0) {
-        this.kd_autoLockTracker.kd_start();
+        this.kd_autoLockTracker.kd_init();
       }
       this.kd_restoreSessionLockState();
+      if (this.kd_options.lockOnStartup && !this.kd_isLocked) {
+        this.kd_lock();
+      }
       if (this.kd_isLocked) {
         if (this.kd_autoLockTracker) {
           this.kd_autoLockTracker.kd_setLockedState(true);
         }
         if (this.kd_ui) {
           this.kd_ui.kd_renderOverlay();
+        }
+        if (this.kd_alarmSystem) {
+          this.kd_alarmSystem.kd_triggerAlarm();
         }
         this.kd_setupHistorySecurityListeners();
       }
@@ -1610,6 +1620,9 @@ var ScreenGuardLib = (() => {
       }
       if (this.kd_options.antiTamper !== false && this.kd_tamperGuard) {
         this.kd_tamperGuard.kd_startMonitoring();
+      }
+      if (this.kd_alarmSystem) {
+        this.kd_alarmSystem.kd_triggerAlarm();
       }
       this.kd_setupHistorySecurityListeners();
       this.kd_notifyStateChange();
@@ -1667,6 +1680,18 @@ var ScreenGuardLib = (() => {
       }
       if (newOptions.autoLockMinutes !== void 0 && this.kd_autoLockTracker) {
         this.kd_autoLockTracker.kd_updateConfig(newOptions.autoLockMinutes);
+      }
+      if (this.kd_alarmSystem) {
+        this.kd_alarmSystem.kd_stopAlarm();
+        this.kd_alarmSystem = new kd_AlarmSystem(
+          this.kd_options.enableSpeechAlarm ?? (this.kd_options.enableAudioAlarm ?? false),
+          this.kd_options.speechMessage || "Security Alert! System Locked!",
+          this.kd_options.enableAudioAlarm ?? false,
+          this.kd_options.alarmSoundUrl
+        );
+        if (this.kd_isLocked) {
+          this.kd_alarmSystem.kd_triggerAlarm();
+        }
       }
       if (this.kd_isLocked && this.kd_ui) {
         const currentViewId = this.kd_ui.kd_currentActiveViewId;
@@ -1759,12 +1784,15 @@ var ScreenGuardLib = (() => {
     }
     kd_attachLockButton(target) {
       if (typeof document === "undefined") return null;
-      const container = typeof target === "string" ? document.querySelector(target) : target;
-      if (!container) return null;
-      const existingBtn = container.querySelector(".kd-header-lock-btn");
-      if (existingBtn) return existingBtn;
+      let el = null;
+      if (typeof target === "string") {
+        el = document.querySelector(target);
+      } else {
+        el = target;
+      }
+      if (!el) return null;
       const btn = this.kd_createLockButton();
-      container.appendChild(btn);
+      el.appendChild(btn);
       return btn;
     }
     kd_destroy() {
@@ -1811,143 +1839,118 @@ var ScreenGuardLib = (() => {
       window.removeEventListener("hashchange", this.kd_historySecurityHandler);
       this.kd_historySecurityHandler = null;
     }
-    kd_getSafeStorage() {
-      try {
-        if (typeof window !== "undefined") {
-          if (this.kd_options.persistLockState === "local" && window.localStorage) {
-            return window.localStorage;
-          }
-          if (window.sessionStorage) {
-            return window.sessionStorage;
-          }
-        }
-      } catch {
-        return null;
-      }
-      return null;
-    }
-    kd_handleFailedAttempt(reason) {
+    async kd_handleFailedAttempt(reason) {
       this.kd_failedAttemptsCount++;
-      this.kd_sendSecurityAlert(reason, false);
-      const maxAttempts = this.kd_options.maxFailedAttempts ?? 5;
-      const durationSec = this.kd_options.lockoutDurationSeconds ?? 30;
-      if (maxAttempts > 0 && this.kd_failedAttemptsCount >= maxAttempts) {
+      const maxAttempts = this.kd_options.maxFailedAttempts || 5;
+      if (this.kd_options.enableIntruderSnapshot) {
+        try {
+          const photoUrl = await kd_IntruderCamera.kd_captureSnapshot();
+          if (photoUrl) {
+            this.kd_lastIntruderSnapshot = {
+              dataUrl: photoUrl,
+              reason: `Unauthorized unlock attempt: ${reason}`,
+              timestamp: Date.now()
+            };
+            if (this.kd_options.onIntruderCaptured) {
+              this.kd_options.onIntruderCaptured(photoUrl);
+            }
+          }
+        } catch {
+        }
+      }
+      if (this.kd_failedAttemptsCount >= maxAttempts) {
+        const durationSec = this.kd_options.lockoutDurationSeconds || 30;
         this.kd_lockoutUntilTimestamp = Date.now() + durationSec * 1e3;
         this.kd_startLockoutCountdown();
+        this.kd_sendSecurityAlert(`Max failed authentication attempts exceeded (${this.kd_failedAttemptsCount}). Temporary lockout engaged.`, true);
+      } else {
+        const remaining = maxAttempts - this.kd_failedAttemptsCount;
+        if (this.kd_ui) {
+          this.kd_ui.kd_showError(`Incorrect password. ${remaining} attempts remaining before temporary lockout.`);
+        }
+        this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
       }
     }
+    kd_handleTamperEvent(details) {
+      this.kd_tamperCount++;
+      if (this.kd_options.enableIntruderSnapshot && !this.kd_lastIntruderSnapshot) {
+        kd_IntruderCamera.kd_captureSnapshot().then((photoUrl) => {
+          if (photoUrl) {
+            this.kd_lastIntruderSnapshot = {
+              dataUrl: photoUrl,
+              reason: `DOM Anti-Tamper Triggered: ${details.type}`,
+              timestamp: Date.now()
+            };
+          }
+        }).catch(() => {
+        });
+      }
+      this.kd_sendSecurityAlert(`DOM Tamper event detected (${details.type}): ${details.reason}`, true);
+    }
     kd_isLockoutActive() {
-      return Date.now() < this.kd_lockoutUntilTimestamp;
+      if (this.kd_lockoutUntilTimestamp > Date.now()) {
+        const remainingSec = Math.ceil((this.kd_lockoutUntilTimestamp - Date.now()) / 1e3);
+        if (this.kd_ui) {
+          this.kd_ui.kd_showError(`System locked out due to failed attempts. Try again in ${remainingSec} seconds.`);
+        }
+        return true;
+      }
+      return false;
     }
     kd_startLockoutCountdown() {
-      if (this.kd_lockoutTimerId) clearInterval(this.kd_lockoutTimerId);
-      const updateUI = () => {
-        const remainingSec = Math.max(0, Math.ceil((this.kd_lockoutUntilTimestamp - Date.now()) / 1e3));
-        if (remainingSec > 0) {
+      if (this.kd_lockoutTimerId) {
+        clearInterval(this.kd_lockoutTimerId);
+      }
+      this.kd_lockoutTimerId = setInterval(() => {
+        if (this.kd_lockoutUntilTimestamp <= Date.now()) {
+          clearInterval(this.kd_lockoutTimerId);
+          this.kd_lockoutTimerId = null;
+          this.kd_failedAttemptsCount = 0;
           if (this.kd_ui) {
-            this.kd_ui.kd_showLockoutError(remainingSec);
+            this.kd_ui.kd_clearError();
           }
         } else {
-          if (this.kd_lockoutTimerId) {
-            clearInterval(this.kd_lockoutTimerId);
-            this.kd_lockoutTimerId = null;
-          }
-          this.kd_failedAttemptsCount = 0;
-          this.kd_lockoutUntilTimestamp = 0;
-          if (this.kd_ui) {
-            this.kd_ui.kd_clearLockoutError();
-          }
+          this.kd_isLockoutActive();
         }
-      };
-      updateUI();
-      this.kd_lockoutTimerId = setInterval(updateUI, 1e3);
+      }, 1e3);
+    }
+    kd_sendSecurityAlert(message, isSevere = false) {
+      const now = Date.now();
+      if (now - this.kd_lastAlertTimestamp < 1e3 && !isSevere) return;
+      this.kd_lastAlertTimestamp = now;
+      if (this.kd_alarmSystem) {
+        this.kd_alarmSystem.kd_triggerAlarm(isSevere);
+      }
+      if (this.kd_options.onSecurityAlert) {
+        const alertDetails = {
+          message,
+          timestamp: now,
+          tamperCount: this.kd_tamperCount,
+          actionCount: ++this.kd_actionCount
+        };
+        this.kd_options.onSecurityAlert(alertDetails);
+      }
     }
     kd_notifyStateChange() {
       if (this.kd_options.onStateChange) {
         this.kd_options.onStateChange(this.kd_getState());
       }
     }
-    kd_handleTamperEvent(details) {
-      this.kd_tamperCount++;
-      if (this.kd_ui) {
-        this.kd_ui.kd_renderOverlay();
-      }
-      if (this.kd_alarmSystem) {
-        this.kd_alarmSystem.kd_triggerAlarm(true);
-      }
-      if (this.kd_options.onTamperDetected) {
-        this.kd_options.onTamperDetected(details);
-      }
-      this.kd_sendSecurityAlert(`Tampering detected: ${details.reason}`, true);
-    }
-    async kd_sendSecurityAlert(reason, isCritical = false) {
-      this.kd_actionCount++;
-      const threshold = this.kd_options.securityAlertThreshold || 1;
-      if (!isCritical && this.kd_actionCount < threshold) return;
-      const now = Date.now();
-      if (!isCritical && now - this.kd_lastAlertTimestamp < 6e4) return;
-      this.kd_lastAlertTimestamp = now;
-      this.kd_actionCount = 0;
-      let snapshotDataUrl = void 0;
-      if (this.kd_options.enableIntruderSnapshot) {
-        const dataUrl = await kd_IntruderCamera.kd_captureSnapshot();
-        if (dataUrl) {
-          snapshotDataUrl = dataUrl;
-          this.kd_lastIntruderSnapshot = {
-            dataUrl,
-            reason,
-            timestamp: now
-          };
-        }
-      }
-      const details = {
-        reason,
-        timestamp: now,
-        actionCount: this.kd_actionCount,
-        isLocked: this.kd_isLocked,
-        intruderSnapshotUrl: snapshotDataUrl
-      };
-      if (this.kd_options.onSecurityAlert) {
-        this.kd_options.onSecurityAlert(details);
-      }
-      if (snapshotDataUrl && this.kd_options.onIntruderCaptured) {
-        this.kd_options.onIntruderCaptured(snapshotDataUrl, details);
-      }
-    }
-    kd_setSessionLockState(isLocked) {
-      const storage = this.kd_getSafeStorage();
-      if (!storage) return;
-      try {
-        if (isLocked) {
-          storage.setItem(LOCK_STORAGE_KEY, "true");
-        } else {
-          storage.removeItem(LOCK_STORAGE_KEY);
-        }
-      } catch {
+    kd_setSessionLockState(locked) {
+      if (typeof window === "undefined") return;
+      const storage = this.kd_options.persistLockState === "local" ? localStorage : sessionStorage;
+      if (locked) {
+        storage.setItem(LOCK_STORAGE_KEY, "true");
+      } else {
+        storage.removeItem(LOCK_STORAGE_KEY);
       }
     }
     kd_restoreSessionLockState() {
-      if (this.kd_options.lockOnStartup) {
+      if (typeof window === "undefined") return;
+      const storage = this.kd_options.persistLockState === "local" ? localStorage : sessionStorage;
+      const saved = storage.getItem(LOCK_STORAGE_KEY);
+      if (saved === "true") {
         this.kd_isLocked = true;
-        this.kd_setSessionLockState(true);
-        return;
-      }
-      const storage = this.kd_getSafeStorage();
-      if (!storage || typeof performance === "undefined") return;
-      try {
-        const wasLocked = storage.getItem(LOCK_STORAGE_KEY) === "true";
-        if (wasLocked && this.kd_passwordHash) {
-          this.kd_isLocked = true;
-          const navEntries = performance.getEntriesByType("navigation");
-          const navEntry = navEntries.length > 0 ? navEntries[0] : null;
-          const isReload = navEntry ? navEntry.type === "reload" : false;
-          if (isReload && this.kd_options.securityTriggerReload !== false) {
-            setTimeout(() => {
-              this.kd_sendSecurityAlert("Page reload detected while locked.", false);
-            }, 500);
-          }
-        }
-      } catch {
       }
     }
   };

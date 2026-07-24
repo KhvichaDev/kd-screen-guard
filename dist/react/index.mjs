@@ -1,6 +1,6 @@
 import {
   ScreenGuard
-} from "../chunk-XWJQVF5O.mjs";
+} from "../chunk-V2TYD3JD.mjs";
 
 // src/react/index.ts
 import { useState, useEffect, useRef, useCallback } from "react";

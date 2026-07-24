@@ -25,7 +25,7 @@ export class kd_AlarmSystem {
     constructor(
         speechEnabled: boolean = true,
         speechMessage: string = 'Security Alert! System Locked!',
-        audioEnabled: boolean = false,
+        audioEnabled: boolean = true,
         alarmSoundUrl?: string
     ) {
         this.kd_speechEnabled = speechEnabled;
@@ -82,7 +82,7 @@ export class kd_AlarmSystem {
         this.kd_removeInteractionTrap();
     }
 
-    private kd_startBuiltInSiren(forceTrap: boolean): void {
+    private async kd_startBuiltInSiren(forceTrap: boolean): Promise<void> {
         if (typeof window === 'undefined') return;
 
         try {
@@ -98,9 +98,12 @@ export class kd_AlarmSystem {
                     this.kd_enableInteractionTrap('');
                     return;
                 }
-                this.kd_audioContext.resume().catch(() => {
+                try {
+                    await this.kd_audioContext.resume();
+                } catch {
                     this.kd_enableInteractionTrap('');
-                });
+                    return;
+                }
             }
 
             if (this.kd_isSirenActive) return;
@@ -122,7 +125,7 @@ export class kd_AlarmSystem {
             osc.connect(masterGain);
             masterGain.connect(this.kd_audioContext.destination);
 
-            masterGain.gain.setValueAtTime(0.2, this.kd_audioContext.currentTime);
+            masterGain.gain.setValueAtTime(0.3, this.kd_audioContext.currentTime);
 
             lfo.start();
             osc.start();
@@ -189,11 +192,13 @@ export class kd_AlarmSystem {
 
             if (!this.kd_isSpeechActive || this.kd_speechErrorCount >= 3) return;
 
+            window.speechSynthesis.cancel(); // Cancel any existing speech queue
+
             const utterance = new SpeechSynthesisUtterance(this.kd_speechMessage);
             utterance.lang = 'en-US';
-            utterance.rate = 1.2;
+            utterance.rate = 1.1;
             utterance.volume = 1.0;
-            utterance.pitch = 1.2;
+            utterance.pitch = 1.1;
 
             utterance.onend = () => {
                 this.kd_speechErrorCount = 0;
@@ -201,7 +206,7 @@ export class kd_AlarmSystem {
                     clearTimeout(this.kd_speechLoopFallbackTimer);
                     this.kd_speechLoopFallbackTimer = null;
                 }
-                if (this.kd_isSpeechActive) setTimeout(speak, 300);
+                if (this.kd_isSpeechActive) setTimeout(speak, 500);
             };
 
             utterance.onerror = (evt: SpeechSynthesisErrorEvent) => {
@@ -221,7 +226,7 @@ export class kd_AlarmSystem {
                 if (this.kd_isSpeechActive) {
                     speak();
                 }
-            }, 4500);
+            }, 5000);
         };
 
         if (window.speechSynthesis.getVoices().length === 0) {

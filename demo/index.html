@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kd-screen-guard Interactive Demo</title>
-    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.4">
+    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.5">
     <style>
         body {
             font-family: 'Google Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -92,8 +92,8 @@
         </div>
     </div>
 
-    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.4 -->
-    <script src="../dist/index.global.js?v=1.0.4"></script>
+    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.5 -->
+    <script src="../dist/index.global.js?v=1.0.5"></script>
 
     <script>
         function logDebug(msg) {
@@ -122,6 +122,8 @@
                     enableWebAuthn: true,
                     enableIntruderSnapshot: true,
                     enableAudioAlarm: true,
+                    enableSpeechAlarm: true,
+                    speechMessage: 'Security Alert! System is Locked.',
                     onStateChange: function (state) {
                         const statusEl = document.getElementById('status-text');
                         if (statusEl) {
@@ -167,7 +169,6 @@
 
                 if (btnSiren) {
                     btnSiren.onclick = function () {
-                        alert('Triggering test siren...');
                         guard.lock();
                     };
                 }
