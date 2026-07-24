@@ -1,6 +1,6 @@
 import {
   ScreenGuard
-} from "../chunk-Q6XSRASN.mjs";
+} from "../chunk-45UXV7JY.mjs";
 
 // src/vue/index.ts
 import { ref, onMounted, onUnmounted } from "vue";

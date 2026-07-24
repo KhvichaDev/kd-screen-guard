@@ -14,6 +14,10 @@ import { kd_WebAuthnManager } from '../guard/kd_webauthn';
 import { kd_LockUI } from '../ui/kd_lock_ui';
 
 const LOCK_STORAGE_KEY = 'kd_screen_guard_is_locked';
+const FAILED_ATTEMPTS_STORAGE_KEY = 'kd_screen_guard_failed_attempts';
+const LOCKOUT_UNTIL_STORAGE_KEY = 'kd_screen_guard_lockout_until';
+const LOCKOUT_COUNT_STORAGE_KEY = 'kd_screen_guard_lockout_count';
+
 
 export class kd_LockEngine {
     private kd_options: kd_ScreenGuardOptions;
@@ -462,9 +466,11 @@ export class kd_LockEngine {
             }
 
             this.kd_lockoutUntilTimestamp = Date.now() + durationSec * 1000;
+            this.kd_saveSecurityState();
             this.kd_startLockoutCountdown();
             this.kd_sendSecurityAlert(`Max failed authentication attempts exceeded (${this.kd_failedAttemptsCount}). Lockout level ${this.kd_lockoutCount} engaged (${durationSec}s).`, true);
         } else {
+            this.kd_saveSecurityState();
             const remaining = maxAttempts - this.kd_failedAttemptsCount;
             if (this.kd_ui) {
                 if (remaining === 1) {
@@ -557,15 +563,56 @@ export class kd_LockEngine {
             storage.setItem(LOCK_STORAGE_KEY, 'true');
         } else {
             storage.removeItem(LOCK_STORAGE_KEY);
+            storage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
+            storage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
+            storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        }
+    }
+
+    private kd_saveSecurityState(): void {
+        if (typeof window === 'undefined') return;
+        const storage = this.kd_options.persistLockState === 'local' ? localStorage : sessionStorage;
+        if (this.kd_isLocked) {
+            storage.setItem(LOCK_STORAGE_KEY, 'true');
+        }
+        storage.setItem(FAILED_ATTEMPTS_STORAGE_KEY, String(this.kd_failedAttemptsCount));
+        storage.setItem(LOCKOUT_COUNT_STORAGE_KEY, String(this.kd_lockoutCount));
+        if (this.kd_lockoutUntilTimestamp > Date.now()) {
+            storage.setItem(LOCKOUT_UNTIL_STORAGE_KEY, String(this.kd_lockoutUntilTimestamp));
+        } else {
+            storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
         }
     }
 
     private kd_restoreSessionLockState(): void {
         if (typeof window === 'undefined') return;
         const storage = this.kd_options.persistLockState === 'local' ? localStorage : sessionStorage;
-        const saved = storage.getItem(LOCK_STORAGE_KEY);
-        if (saved === 'true') {
+
+        const savedLocked = storage.getItem(LOCK_STORAGE_KEY);
+        if (savedLocked === 'true') {
             this.kd_isLocked = true;
+        }
+
+        const savedFailed = storage.getItem(FAILED_ATTEMPTS_STORAGE_KEY);
+        if (savedFailed) {
+            this.kd_failedAttemptsCount = parseInt(savedFailed, 10) || 0;
+        }
+
+        const savedLockoutCount = storage.getItem(LOCKOUT_COUNT_STORAGE_KEY);
+        if (savedLockoutCount) {
+            this.kd_lockoutCount = parseInt(savedLockoutCount, 10) || 0;
+        }
+
+        const savedUntil = storage.getItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        if (savedUntil) {
+            const untilTs = parseInt(savedUntil, 10) || 0;
+            if (untilTs > Date.now()) {
+                this.kd_lockoutUntilTimestamp = untilTs;
+                this.kd_isLocked = true;
+                this.kd_startLockoutCountdown();
+            } else {
+                storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+            }
         }
     }
 }

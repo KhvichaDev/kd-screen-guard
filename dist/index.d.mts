@@ -221,6 +221,7 @@ declare class kd_LockEngine {
     private kd_sendSecurityAlert;
     private kd_notifyStateChange;
     private kd_setSessionLockState;
+    private kd_saveSecurityState;
     private kd_restoreSessionLockState;
 }
 
