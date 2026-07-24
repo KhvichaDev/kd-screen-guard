@@ -115,9 +115,6 @@ export class kd_LockEngine {
             if (this.kd_ui) {
                 this.kd_ui.kd_renderOverlay();
             }
-            if (this.kd_alarmSystem) {
-                this.kd_alarmSystem.kd_triggerAlarm();
-            }
             this.kd_setupHistorySecurityListeners();
         }
     }
@@ -142,11 +139,8 @@ export class kd_LockEngine {
             this.kd_tamperGuard.kd_startMonitoring();
         }
 
-        if (this.kd_alarmSystem) {
-            this.kd_alarmSystem.kd_triggerAlarm();
-        }
-
         this.kd_setupHistorySecurityListeners();
+
         this.kd_notifyStateChange();
 
         if (this.kd_options.onLock) {

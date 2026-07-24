@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kd-screen-guard Interactive Demo</title>
-    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.5">
+    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.6">
     <style>
         body {
             font-family: 'Google Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -82,9 +82,9 @@
         </div>
 
         <div class="btn-group">
-            <button type="button" id="btn-lock">🔒 Lock Screen Now</button>
+            <button type="button" id="btn-lock">🔒 Lock Screen Now (Silent)</button>
             <button type="button" id="btn-biometric">👆 Test WebAuthn Registration</button>
-            <button type="button" id="btn-siren" class="btn-danger">🚨 Test Siren Sound</button>
+            <button type="button" id="btn-siren" class="btn-danger">🚨 Test Siren Alarm (Security Incident)</button>
         </div>
 
         <div id="header-actions" style="margin-top: 30px;">
@@ -92,8 +92,8 @@
         </div>
     </div>
 
-    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.5 -->
-    <script src="../dist/index.global.js?v=1.0.5"></script>
+    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.6 -->
+    <script src="../dist/index.global.js?v=1.0.6"></script>
 
     <script>
         function logDebug(msg) {
@@ -123,7 +123,7 @@
                     enableIntruderSnapshot: true,
                     enableAudioAlarm: true,
                     enableSpeechAlarm: true,
-                    speechMessage: 'Security Alert! System is Locked.',
+                    speechMessage: 'Security Alert! Unauthorized Access Attempted.',
                     onStateChange: function (state) {
                         const statusEl = document.getElementById('status-text');
                         if (statusEl) {
@@ -145,7 +145,7 @@
                 if (btnLock) {
                     btnLock.onclick = function () {
                         try {
-                            guard.lock();
+                            guard.lock(); // Normal quiet lock screen
                         } catch (err) {
                             logDebug('Lock error: ' + err.message);
                         }
@@ -168,8 +168,17 @@
                 }
 
                 if (btnSiren) {
-                    btnSiren.onclick = function () {
+                    btnSiren.onclick = async function () {
                         guard.lock();
+                        // Trigger security alert simulation for testing siren & speech alarm
+                        setTimeout(() => {
+                            const input = document.getElementById('kd-lock-password-input');
+                            const unlockBtn = document.getElementById('kd-unlock-btn');
+                            if (unlockBtn) {
+                                if (input) input.value = 'wrong_pass';
+                                unlockBtn.click();
+                            }
+                        }, 200);
                     };
                 }
             } catch (err) {

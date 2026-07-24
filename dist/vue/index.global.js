@@ -58927,9 +58927,6 @@ ${codeFrame}` : message);
         if (this.kd_ui) {
           this.kd_ui.kd_renderOverlay();
         }
-        if (this.kd_alarmSystem) {
-          this.kd_alarmSystem.kd_triggerAlarm();
-        }
         this.kd_setupHistorySecurityListeners();
       }
     }
@@ -58947,9 +58944,6 @@ ${codeFrame}` : message);
       }
       if (this.kd_options.antiTamper !== false && this.kd_tamperGuard) {
         this.kd_tamperGuard.kd_startMonitoring();
-      }
-      if (this.kd_alarmSystem) {
-        this.kd_alarmSystem.kd_triggerAlarm();
       }
       this.kd_setupHistorySecurityListeners();
       this.kd_notifyStateChange();
