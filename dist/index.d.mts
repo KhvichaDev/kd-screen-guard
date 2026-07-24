@@ -81,11 +81,19 @@ interface kd_ScreenGuardOptions {
      */
     securityAlertThreshold?: number;
     /**
+     * Enable or disable consecutive failed attempt lockout system. Defaults to true.
+     */
+    enableLockout?: boolean;
+    /**
+     * Enable progressive exponential backoff lockout duration (30s -> 1m -> 5m -> 15m -> 1h). Defaults to true.
+     */
+    enableExponentialLockout?: boolean;
+    /**
      * Maximum consecutive failed password attempts before temporary lockout. Set to 0 to disable.
      */
     maxFailedAttempts?: number;
     /**
-     * Duration in seconds for temporary lockout when max failed attempts is exceeded.
+     * Base duration in seconds for temporary lockout when max failed attempts is exceeded.
      */
     lockoutDurationSeconds?: number;
     /**
@@ -178,6 +186,7 @@ declare class kd_LockEngine {
     private kd_tamperCount;
     private kd_actionCount;
     private kd_failedAttemptsCount;
+    private kd_lockoutCount;
     private kd_lockoutUntilTimestamp;
     private kd_lockoutTimerId;
     private kd_lastAlertTimestamp;

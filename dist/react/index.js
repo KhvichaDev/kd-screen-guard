@@ -1522,6 +1522,7 @@ var kd_LockEngine = class {
     this.kd_tamperCount = 0;
     this.kd_actionCount = 0;
     this.kd_failedAttemptsCount = 0;
+    this.kd_lockoutCount = 0;
     this.kd_lockoutUntilTimestamp = 0;
     this.kd_lockoutTimerId = null;
     this.kd_lastAlertTimestamp = 0;
@@ -1630,6 +1631,7 @@ var kd_LockEngine = class {
     this.kd_isLocked = false;
     this.kd_actionCount = 0;
     this.kd_failedAttemptsCount = 0;
+    this.kd_lockoutCount = 0;
     this.kd_lockoutUntilTimestamp = 0;
     if (this.kd_lockoutTimerId) {
       clearInterval(this.kd_lockoutTimerId);
@@ -1860,15 +1862,41 @@ var kd_LockEngine = class {
       } catch {
       }
     }
+    if (this.kd_options.enableLockout === false) {
+      if (this.kd_ui) {
+        this.kd_ui.kd_showError("Incorrect password entered.");
+      }
+      this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
+      return;
+    }
     if (this.kd_failedAttemptsCount >= maxAttempts) {
-      const durationSec = this.kd_options.lockoutDurationSeconds || 30;
+      this.kd_lockoutCount++;
+      const baseDuration = this.kd_options.lockoutDurationSeconds || 30;
+      let durationSec = baseDuration;
+      if (this.kd_options.enableExponentialLockout !== false) {
+        if (this.kd_lockoutCount === 1) {
+          durationSec = baseDuration;
+        } else if (this.kd_lockoutCount === 2) {
+          durationSec = Math.max(baseDuration * 2, 60);
+        } else if (this.kd_lockoutCount === 3) {
+          durationSec = Math.max(baseDuration * 10, 300);
+        } else if (this.kd_lockoutCount === 4) {
+          durationSec = Math.max(baseDuration * 30, 900);
+        } else {
+          durationSec = Math.max(baseDuration * 120, 3600);
+        }
+      }
       this.kd_lockoutUntilTimestamp = Date.now() + durationSec * 1e3;
       this.kd_startLockoutCountdown();
-      this.kd_sendSecurityAlert(`Max failed authentication attempts exceeded (${this.kd_failedAttemptsCount}). Temporary lockout engaged.`, true);
+      this.kd_sendSecurityAlert(`Max failed authentication attempts exceeded (${this.kd_failedAttemptsCount}). Lockout level ${this.kd_lockoutCount} engaged (${durationSec}s).`, true);
     } else {
       const remaining = maxAttempts - this.kd_failedAttemptsCount;
       if (this.kd_ui) {
-        this.kd_ui.kd_showError(`Incorrect password. ${remaining} attempts remaining before temporary lockout.`);
+        if (remaining === 1) {
+          this.kd_ui.kd_showError("Warning: 1 attempt remaining before temporary security lockout.");
+        } else {
+          this.kd_ui.kd_showError("Incorrect password.");
+        }
       }
       this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
     }

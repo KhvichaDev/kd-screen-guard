@@ -242,7 +242,9 @@ const { isLocked, lock } = useScreenGuard({
 | `securityQuestion` | `string` | — | Recovery question for password reset flow. |
 | `securityAnswerHash` | `string` | — | Pre-hashed recovery answer. |
 | `maxFailedAttempts` | `number` | `5` | Failed attempts threshold before temporary lockout. |
-| `lockoutDurationSeconds` | `number` | `30` | Duration of temporary lockout in seconds. |
+| `enableLockout` | `boolean` | `true` | Enable or disable consecutive failed attempt lockout system entirely. |
+| `enableExponentialLockout` | `boolean` | `true` | Enable progressive exponential backoff lockout duration (30s -> 1m -> 5m -> 15m -> 1h). |
+| `lockoutDurationSeconds` | `number` | `30` | Base duration of temporary lockout in seconds. |
 | `channelName` | `string` | `'default'` | Custom BroadcastChannel name for multi-instance origin isolation. |
 
 ---

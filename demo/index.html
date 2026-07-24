@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kd-screen-guard Interactive Demo</title>
-    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.6">
+    <link rel="stylesheet" href="../dist/kd_styles.css?v=1.0.7">
     <style>
         body {
             font-family: 'Google Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -62,6 +62,25 @@
             border-radius: 8px;
             border-left: 4px solid #a8c7fa;
         }
+        .demo-pass-badge {
+            margin-top: 15px;
+            padding: 12px 16px;
+            background-color: rgba(168, 199, 250, 0.1);
+            border: 1px dashed #a8c7fa;
+            border-radius: 8px;
+            color: #a8c7fa;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .demo-pass-badge code {
+            background-color: #2a2b2e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #ffffff;
+        }
         #debug-log {
             margin-top: 15px;
             font-family: monospace;
@@ -75,6 +94,10 @@
     <div class="container">
         <h1>🛡️ kd-screen-guard Live Demo</h1>
         <p>Interactive demonstration of WebAuthn Biometrics, Intruder Webcam Snapshot, Off-Main-Thread Crypto, and Built-in Siren.</p>
+
+        <div class="demo-pass-badge">
+            <span>🔑 <strong>Demo Password:</strong> <code>1234</code></span>
+        </div>
 
         <div class="status-box">
             <strong>Status:</strong> <span id="status-text">Initializing...</span>
@@ -92,8 +115,8 @@
         </div>
     </div>
 
-    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.6 -->
-    <script src="../dist/index.global.js?v=1.0.6"></script>
+    <!-- Standalone Global Browser Bundle with Cache-Buster v1.0.7 -->
+    <script src="../dist/index.global.js?v=1.0.7"></script>
 
     <script>
         function logDebug(msg) {
@@ -118,6 +141,7 @@
                 const guard = new ScreenGuardClass({
                     password: '1234',
                     salt: 'demo-salt-2026',
+                    subtitle: 'Enter password to unlock (Demo Password: 1234)',
                     autoLockMinutes: 3,
                     enableWebAuthn: true,
                     enableIntruderSnapshot: true,
@@ -145,7 +169,7 @@
                 if (btnLock) {
                     btnLock.onclick = function () {
                         try {
-                            guard.lock(); // Normal quiet lock screen
+                            guard.lock();
                         } catch (err) {
                             logDebug('Lock error: ' + err.message);
                         }
@@ -170,7 +194,6 @@
                 if (btnSiren) {
                     btnSiren.onclick = async function () {
                         guard.lock();
-                        // Trigger security alert simulation for testing siren & speech alarm
                         setTimeout(() => {
                             const input = document.getElementById('kd-lock-password-input');
                             const unlockBtn = document.getElementById('kd-unlock-btn');
