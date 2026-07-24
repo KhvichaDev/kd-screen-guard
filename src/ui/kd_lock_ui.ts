@@ -546,9 +546,5 @@ export class kd_LockUI {
             if (input) input.focus();
         }
     }
-
-    private kd_showError(elementId: string, message: string): void {
-        const el = document.getElementById(elementId);
-        if (el) el.textContent = message;
-    }
 }
+

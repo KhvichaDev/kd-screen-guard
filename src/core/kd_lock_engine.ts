@@ -98,8 +98,9 @@ export class kd_LockEngine {
         );
 
         if (this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0) {
-            this.kd_autoLockTracker.kd_init();
+            this.kd_autoLockTracker.kd_start();
         }
+
 
         this.kd_restoreSessionLockState();
 
