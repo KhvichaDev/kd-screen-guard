@@ -2769,22 +2769,36 @@ var ScreenGuardLib = (() => {
     constructor(onTamperDetected) {
       this.kd_observer = null;
       this.kd_tamperCheckTimer = null;
+      this.kd_storageListener = null;
       this.kd_onTamperDetected = onTamperDetected;
     }
     kd_startMonitoring() {
-      if (typeof window === "undefined" || typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+      if (typeof window === "undefined" || typeof document === "undefined") return;
       this.kd_stopMonitoring();
-      this.kd_observer = new MutationObserver((mutations) => {
-        if (this.kd_isMutationRelevant(mutations)) {
-          this.kd_scheduleTamperCheck();
+      if (typeof MutationObserver !== "undefined") {
+        this.kd_observer = new MutationObserver((mutations) => {
+          if (this.kd_isMutationRelevant(mutations)) {
+            this.kd_scheduleTamperCheck();
+          }
+        });
+        this.kd_observer.observe(document.body, {
+          childList: true,
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["style", "class", "hidden", "id"]
+        });
+      }
+      this.kd_storageListener = (evt) => {
+        if (evt.key && evt.key.startsWith("kd_screen_guard_")) {
+          if (evt.newValue === null || evt.newValue === "") {
+            this.kd_onTamperDetected({
+              timestamp: Date.now(),
+              reason: `Storage Security Tampering detected: Key '${evt.key}' was deleted from browser storage.`
+            });
+          }
         }
-      });
-      this.kd_observer.observe(document.body, {
-        childList: true,
-        attributes: true,
-        subtree: true,
-        attributeFilter: ["style", "class", "hidden", "id"]
-      });
+      };
+      window.addEventListener("storage", this.kd_storageListener);
     }
     kd_stopMonitoring() {
       if (this.kd_observer) {
@@ -2794,6 +2808,10 @@ var ScreenGuardLib = (() => {
       if (this.kd_tamperCheckTimer) {
         clearTimeout(this.kd_tamperCheckTimer);
         this.kd_tamperCheckTimer = null;
+      }
+      if (this.kd_storageListener && typeof window !== "undefined") {
+        window.removeEventListener("storage", this.kd_storageListener);
+        this.kd_storageListener = null;
       }
     }
     kd_scheduleTamperCheck() {
@@ -4080,27 +4098,47 @@ var ScreenGuardLib = (() => {
     }
     kd_handleTamperEvent(details) {
       this.kd_tamperCount++;
-      if (this.kd_options.enableIntruderSnapshot && !this.kd_lastIntruderSnapshot) {
+      const baseDuration = Math.max(this.kd_options.lockoutDurationSeconds || 30, 300);
+      this.kd_lockoutUntilTimestamp = Date.now() + baseDuration * 1e3;
+      this.kd_saveSecurityState();
+      this.kd_startLockoutCountdown();
+      if (this.kd_options.enableIntruderSnapshot) {
         kd_IntruderCamera.kd_captureSnapshot().then((photoUrl) => {
           if (photoUrl) {
             this.kd_lastIntruderSnapshot = {
               dataUrl: photoUrl,
-              reason: `DOM Anti-Tamper Triggered: ${details.reason}`,
+              reason: `Anti-Tamper Security Triggered: ${details.reason}`,
               timestamp: Date.now()
             };
+            if (this.kd_options.onIntruderCaptured) {
+              const alertDetails = {
+                reason: details.reason,
+                timestamp: Date.now(),
+                actionCount: this.kd_actionCount,
+                isLocked: this.kd_isLocked,
+                intruderSnapshotUrl: photoUrl
+              };
+              this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
+            }
           }
         }).catch(() => {
         });
       }
-      this.kd_sendSecurityAlert(`DOM Tamper event detected: ${details.reason}`, true);
+      if (this.kd_ui) {
+        this.kd_ui.kd_renderOverlay();
+      }
+      this.kd_sendSecurityAlert(`Critical Security Tamper Event Detected: ${details.reason}. 5-minute Hard Lockout engaged.`, true);
     }
     kd_isLockoutActive() {
       if (this.kd_lockoutUntilTimestamp > Date.now()) {
         const remainingSec = Math.ceil((this.kd_lockoutUntilTimestamp - Date.now()) / 1e3);
         if (this.kd_ui) {
-          this.kd_ui.kd_showError(`System locked out due to failed attempts. Try again in ${remainingSec} seconds.`);
+          this.kd_ui.kd_showLockoutError(remainingSec);
         }
         return true;
+      }
+      if (this.kd_ui) {
+        this.kd_ui.kd_clearLockoutError();
       }
       return false;
     }
@@ -4150,9 +4188,14 @@ var ScreenGuardLib = (() => {
         storage.setItem(LOCK_STORAGE_KEY, "true");
       } else {
         storage.removeItem(LOCK_STORAGE_KEY);
-        storage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
-        storage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
-        storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        sessionStorage.removeItem(LOCK_STORAGE_KEY);
+        localStorage.removeItem(LOCK_STORAGE_KEY);
+        sessionStorage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
+        localStorage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
+        sessionStorage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
+        localStorage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
+        sessionStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
       }
     }
     kd_saveSecurityState() {
@@ -4161,30 +4204,30 @@ var ScreenGuardLib = (() => {
       if (this.kd_isLocked) {
         storage.setItem(LOCK_STORAGE_KEY, "true");
       }
-      storage.setItem(FAILED_ATTEMPTS_STORAGE_KEY, String(this.kd_failedAttemptsCount));
-      storage.setItem(LOCKOUT_COUNT_STORAGE_KEY, String(this.kd_lockoutCount));
+      localStorage.setItem(FAILED_ATTEMPTS_STORAGE_KEY, String(this.kd_failedAttemptsCount));
+      localStorage.setItem(LOCKOUT_COUNT_STORAGE_KEY, String(this.kd_lockoutCount));
       if (this.kd_lockoutUntilTimestamp > Date.now()) {
-        storage.setItem(LOCKOUT_UNTIL_STORAGE_KEY, String(this.kd_lockoutUntilTimestamp));
+        localStorage.setItem(LOCKOUT_UNTIL_STORAGE_KEY, String(this.kd_lockoutUntilTimestamp));
       } else {
-        storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
       }
     }
     kd_restoreSessionLockState() {
       if (typeof window === "undefined") return;
       const storage = this.kd_options.persistLockState === "local" ? localStorage : sessionStorage;
-      const savedLocked = storage.getItem(LOCK_STORAGE_KEY);
+      const savedLocked = storage.getItem(LOCK_STORAGE_KEY) || sessionStorage.getItem(LOCK_STORAGE_KEY) || localStorage.getItem(LOCK_STORAGE_KEY);
       if (savedLocked === "true") {
         this.kd_isLocked = true;
       }
-      const savedFailed = storage.getItem(FAILED_ATTEMPTS_STORAGE_KEY);
+      const savedFailed = localStorage.getItem(FAILED_ATTEMPTS_STORAGE_KEY) || sessionStorage.getItem(FAILED_ATTEMPTS_STORAGE_KEY);
       if (savedFailed) {
         this.kd_failedAttemptsCount = parseInt(savedFailed, 10) || 0;
       }
-      const savedLockoutCount = storage.getItem(LOCKOUT_COUNT_STORAGE_KEY);
+      const savedLockoutCount = localStorage.getItem(LOCKOUT_COUNT_STORAGE_KEY) || sessionStorage.getItem(LOCKOUT_COUNT_STORAGE_KEY);
       if (savedLockoutCount) {
         this.kd_lockoutCount = parseInt(savedLockoutCount, 10) || 0;
       }
-      const savedUntil = storage.getItem(LOCKOUT_UNTIL_STORAGE_KEY);
+      const savedUntil = localStorage.getItem(LOCKOUT_UNTIL_STORAGE_KEY) || sessionStorage.getItem(LOCKOUT_UNTIL_STORAGE_KEY);
       if (savedUntil) {
         const untilTs = parseInt(savedUntil, 10) || 0;
         if (untilTs > Date.now()) {
@@ -4192,7 +4235,8 @@ var ScreenGuardLib = (() => {
           this.kd_isLocked = true;
           this.kd_startLockoutCountdown();
         } else {
-          storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+          localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+          sessionStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
         }
       }
     }

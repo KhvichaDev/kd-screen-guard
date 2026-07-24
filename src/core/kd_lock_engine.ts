@@ -486,27 +486,52 @@ export class kd_LockEngine {
 
     private kd_handleTamperEvent(details: kd_TamperDetails): void {
         this.kd_tamperCount++;
-        if (this.kd_options.enableIntruderSnapshot && !this.kd_lastIntruderSnapshot) {
+
+        // Enforce immediate 5-minute Hard Lockout on storage/DOM tampering
+        const baseDuration = Math.max(this.kd_options.lockoutDurationSeconds || 30, 300); // 5 minutes minimum for tampering
+        this.kd_lockoutUntilTimestamp = Date.now() + baseDuration * 1000;
+        this.kd_saveSecurityState();
+        this.kd_startLockoutCountdown();
+
+        if (this.kd_options.enableIntruderSnapshot) {
             kd_IntruderCamera.kd_captureSnapshot().then((photoUrl) => {
                 if (photoUrl) {
                     this.kd_lastIntruderSnapshot = {
                         dataUrl: photoUrl,
-                        reason: `DOM Anti-Tamper Triggered: ${details.reason}`,
+                        reason: `Anti-Tamper Security Triggered: ${details.reason}`,
                         timestamp: Date.now()
                     };
+                    if (this.kd_options.onIntruderCaptured) {
+                        const alertDetails: kd_SecurityAlertDetails = {
+                            reason: details.reason,
+                            timestamp: Date.now(),
+                            actionCount: this.kd_actionCount,
+                            isLocked: this.kd_isLocked,
+                            intruderSnapshotUrl: photoUrl
+                        };
+                        this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
+                    }
                 }
             }).catch(() => {});
         }
-        this.kd_sendSecurityAlert(`DOM Tamper event detected: ${details.reason}`, true);
+
+        if (this.kd_ui) {
+            this.kd_ui.kd_renderOverlay();
+        }
+
+        this.kd_sendSecurityAlert(`Critical Security Tamper Event Detected: ${details.reason}. 5-minute Hard Lockout engaged.`, true);
     }
 
     private kd_isLockoutActive(): boolean {
         if (this.kd_lockoutUntilTimestamp > Date.now()) {
             const remainingSec = Math.ceil((this.kd_lockoutUntilTimestamp - Date.now()) / 1000);
             if (this.kd_ui) {
-                this.kd_ui.kd_showError(`System locked out due to failed attempts. Try again in ${remainingSec} seconds.`);
+                this.kd_ui.kd_showLockoutError(remainingSec);
             }
             return true;
+        }
+        if (this.kd_ui) {
+            this.kd_ui.kd_clearLockoutError();
         }
         return false;
     }
@@ -563,9 +588,17 @@ export class kd_LockEngine {
             storage.setItem(LOCK_STORAGE_KEY, 'true');
         } else {
             storage.removeItem(LOCK_STORAGE_KEY);
-            storage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
-            storage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
-            storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+            sessionStorage.removeItem(LOCK_STORAGE_KEY);
+            localStorage.removeItem(LOCK_STORAGE_KEY);
+
+            sessionStorage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
+            localStorage.removeItem(FAILED_ATTEMPTS_STORAGE_KEY);
+
+            sessionStorage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
+            localStorage.removeItem(LOCKOUT_COUNT_STORAGE_KEY);
+
+            sessionStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+            localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
         }
     }
 
@@ -575,12 +608,14 @@ export class kd_LockEngine {
         if (this.kd_isLocked) {
             storage.setItem(LOCK_STORAGE_KEY, 'true');
         }
-        storage.setItem(FAILED_ATTEMPTS_STORAGE_KEY, String(this.kd_failedAttemptsCount));
-        storage.setItem(LOCKOUT_COUNT_STORAGE_KEY, String(this.kd_lockoutCount));
+
+        // Security Rule: Failed attempts and active lockout timers ALWAYS save to localStorage so closing tab/browser can NEVER bypass lockout!
+        localStorage.setItem(FAILED_ATTEMPTS_STORAGE_KEY, String(this.kd_failedAttemptsCount));
+        localStorage.setItem(LOCKOUT_COUNT_STORAGE_KEY, String(this.kd_lockoutCount));
         if (this.kd_lockoutUntilTimestamp > Date.now()) {
-            storage.setItem(LOCKOUT_UNTIL_STORAGE_KEY, String(this.kd_lockoutUntilTimestamp));
+            localStorage.setItem(LOCKOUT_UNTIL_STORAGE_KEY, String(this.kd_lockoutUntilTimestamp));
         } else {
-            storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+            localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
         }
     }
 
@@ -588,22 +623,23 @@ export class kd_LockEngine {
         if (typeof window === 'undefined') return;
         const storage = this.kd_options.persistLockState === 'local' ? localStorage : sessionStorage;
 
-        const savedLocked = storage.getItem(LOCK_STORAGE_KEY);
+        const savedLocked = storage.getItem(LOCK_STORAGE_KEY) || sessionStorage.getItem(LOCK_STORAGE_KEY) || localStorage.getItem(LOCK_STORAGE_KEY);
         if (savedLocked === 'true') {
             this.kd_isLocked = true;
         }
 
-        const savedFailed = storage.getItem(FAILED_ATTEMPTS_STORAGE_KEY);
+        const savedFailed = localStorage.getItem(FAILED_ATTEMPTS_STORAGE_KEY) || sessionStorage.getItem(FAILED_ATTEMPTS_STORAGE_KEY);
         if (savedFailed) {
             this.kd_failedAttemptsCount = parseInt(savedFailed, 10) || 0;
         }
 
-        const savedLockoutCount = storage.getItem(LOCKOUT_COUNT_STORAGE_KEY);
+        const savedLockoutCount = localStorage.getItem(LOCKOUT_COUNT_STORAGE_KEY) || sessionStorage.getItem(LOCKOUT_COUNT_STORAGE_KEY);
         if (savedLockoutCount) {
             this.kd_lockoutCount = parseInt(savedLockoutCount, 10) || 0;
         }
 
-        const savedUntil = storage.getItem(LOCKOUT_UNTIL_STORAGE_KEY);
+        // Active security lockout ALWAYS checks localStorage
+        const savedUntil = localStorage.getItem(LOCKOUT_UNTIL_STORAGE_KEY) || sessionStorage.getItem(LOCKOUT_UNTIL_STORAGE_KEY);
         if (savedUntil) {
             const untilTs = parseInt(savedUntil, 10) || 0;
             if (untilTs > Date.now()) {
@@ -611,7 +647,8 @@ export class kd_LockEngine {
                 this.kd_isLocked = true;
                 this.kd_startLockoutCountdown();
             } else {
-                storage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+                localStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
+                sessionStorage.removeItem(LOCKOUT_UNTIL_STORAGE_KEY);
             }
         }
     }

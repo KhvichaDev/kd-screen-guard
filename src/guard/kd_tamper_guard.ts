@@ -1,6 +1,6 @@
 /**
  * Self-Healing Tamper Guard for kd-screen-guard overlay.
- * Uses MutationObserver to monitor DOM node deletion, inline CSS tampering, z-index modifications, and Shadow DOM re-parenting, automatically healing the lock screen overlay.
+ * Uses MutationObserver to monitor DOM node deletion, inline CSS tampering, z-index modifications, Shadow DOM re-parenting, and LocalStorage tampering, automatically healing the lock screen overlay and storage state.
  */
 
 import { kd_TamperDetails } from '../types';
@@ -9,27 +9,43 @@ export class kd_TamperGuard {
     private kd_observer: MutationObserver | null = null;
     private kd_onTamperDetected: (details: kd_TamperDetails) => void;
     private kd_tamperCheckTimer: ReturnType<typeof setTimeout> | null = null;
+    private kd_storageListener: ((evt: StorageEvent) => void) | null = null;
 
     constructor(onTamperDetected: (details: kd_TamperDetails) => void) {
         this.kd_onTamperDetected = onTamperDetected;
     }
 
     public kd_startMonitoring(): void {
-        if (typeof window === 'undefined' || typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+        if (typeof window === 'undefined' || typeof document === 'undefined') return;
         this.kd_stopMonitoring();
 
-        this.kd_observer = new MutationObserver((mutations) => {
-            if (this.kd_isMutationRelevant(mutations)) {
-                this.kd_scheduleTamperCheck();
-            }
-        });
+        if (typeof MutationObserver !== 'undefined') {
+            this.kd_observer = new MutationObserver((mutations) => {
+                if (this.kd_isMutationRelevant(mutations)) {
+                    this.kd_scheduleTamperCheck();
+                }
+            });
 
-        this.kd_observer.observe(document.body, {
-            childList: true,
-            attributes: true,
-            subtree: true,
-            attributeFilter: ['style', 'class', 'hidden', 'id']
-        });
+            this.kd_observer.observe(document.body, {
+                childList: true,
+                attributes: true,
+                subtree: true,
+                attributeFilter: ['style', 'class', 'hidden', 'id']
+            });
+        }
+
+        this.kd_storageListener = (evt: StorageEvent) => {
+            if (evt.key && evt.key.startsWith('kd_screen_guard_')) {
+                if (evt.newValue === null || evt.newValue === '') {
+                    this.kd_onTamperDetected({
+                        timestamp: Date.now(),
+                        reason: `Storage Security Tampering detected: Key '${evt.key}' was deleted from browser storage.`
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('storage', this.kd_storageListener);
     }
 
     public kd_stopMonitoring(): void {
@@ -40,6 +56,10 @@ export class kd_TamperGuard {
         if (this.kd_tamperCheckTimer) {
             clearTimeout(this.kd_tamperCheckTimer);
             this.kd_tamperCheckTimer = null;
+        }
+        if (this.kd_storageListener && typeof window !== 'undefined') {
+            window.removeEventListener('storage', this.kd_storageListener);
+            this.kd_storageListener = null;
         }
     }
 
