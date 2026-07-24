@@ -246,8 +246,18 @@ export class kd_LockUI {
         }
     }
 
+    public kd_showError(msg: string): void {
+        if (typeof document === 'undefined') return;
+        const el = document.getElementById('kd-password-error') || document.getElementById('kd-recovery-error') || document.getElementById('kd-reset-error');
+        if (el) el.textContent = msg;
+    }
+
+    public kd_clearError(): void {
+        this.kd_showError('');
+    }
+
     public kd_showLockoutError(secondsRemaining: number): void {
-        this.kd_showError('kd-password-error', `Too many failed attempts. Locked out for ${secondsRemaining}s.`);
+        this.kd_showError(`Too many failed attempts. Locked out for ${secondsRemaining}s.`);
         const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
         const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
 
@@ -256,13 +266,14 @@ export class kd_LockUI {
     }
 
     public kd_clearLockoutError(): void {
-        this.kd_showError('kd-password-error', '');
+        this.kd_showError('');
         const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
         const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
 
         if (unlockBtn) unlockBtn.disabled = false;
         if (passInput) passInput.disabled = false;
     }
+
 
     private kd_setupVisibilitySecurity(): void {
         if (typeof document === 'undefined') return;

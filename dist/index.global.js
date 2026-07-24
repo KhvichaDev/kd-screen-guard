@@ -1264,15 +1264,23 @@ var ScreenGuardLib = (() => {
         });
       }
     }
+    kd_showError(msg) {
+      if (typeof document === "undefined") return;
+      const el = document.getElementById("kd-password-error") || document.getElementById("kd-recovery-error") || document.getElementById("kd-reset-error");
+      if (el) el.textContent = msg;
+    }
+    kd_clearError() {
+      this.kd_showError("");
+    }
     kd_showLockoutError(secondsRemaining) {
-      this.kd_showError("kd-password-error", `Too many failed attempts. Locked out for ${secondsRemaining}s.`);
+      this.kd_showError(`Too many failed attempts. Locked out for ${secondsRemaining}s.`);
       const unlockBtn = document.getElementById("kd-unlock-btn");
       const passInput = document.getElementById("kd-lock-password-input");
       if (unlockBtn) unlockBtn.disabled = true;
       if (passInput) passInput.disabled = true;
     }
     kd_clearLockoutError() {
-      this.kd_showError("kd-password-error", "");
+      this.kd_showError("");
       const unlockBtn = document.getElementById("kd-unlock-btn");
       const passInput = document.getElementById("kd-lock-password-input");
       if (unlockBtn) unlockBtn.disabled = false;
@@ -1852,7 +1860,14 @@ var ScreenGuardLib = (() => {
               timestamp: Date.now()
             };
             if (this.kd_options.onIntruderCaptured) {
-              this.kd_options.onIntruderCaptured(photoUrl);
+              const alertDetails = {
+                reason,
+                timestamp: Date.now(),
+                actionCount: this.kd_actionCount,
+                isLocked: this.kd_isLocked,
+                intruderSnapshotUrl: photoUrl
+              };
+              this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
             }
           }
         } catch {
@@ -1878,14 +1893,14 @@ var ScreenGuardLib = (() => {
           if (photoUrl) {
             this.kd_lastIntruderSnapshot = {
               dataUrl: photoUrl,
-              reason: `DOM Anti-Tamper Triggered: ${details.type}`,
+              reason: `DOM Anti-Tamper Triggered: ${details.reason}`,
               timestamp: Date.now()
             };
           }
         }).catch(() => {
         });
       }
-      this.kd_sendSecurityAlert(`DOM Tamper event detected (${details.type}): ${details.reason}`, true);
+      this.kd_sendSecurityAlert(`DOM Tamper event detected: ${details.reason}`, true);
     }
     kd_isLockoutActive() {
       if (this.kd_lockoutUntilTimestamp > Date.now()) {
@@ -1923,10 +1938,10 @@ var ScreenGuardLib = (() => {
       }
       if (this.kd_options.onSecurityAlert) {
         const alertDetails = {
-          message,
+          reason: message,
           timestamp: now,
-          tamperCount: this.kd_tamperCount,
-          actionCount: ++this.kd_actionCount
+          actionCount: ++this.kd_actionCount,
+          isLocked: this.kd_isLocked
         };
         this.kd_options.onSecurityAlert(alertDetails);
       }

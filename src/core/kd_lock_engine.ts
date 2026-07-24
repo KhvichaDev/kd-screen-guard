@@ -422,7 +422,14 @@ export class kd_LockEngine {
                         timestamp: Date.now()
                     };
                     if (this.kd_options.onIntruderCaptured) {
-                        this.kd_options.onIntruderCaptured(photoUrl);
+                        const alertDetails: kd_SecurityAlertDetails = {
+                            reason,
+                            timestamp: Date.now(),
+                            actionCount: this.kd_actionCount,
+                            isLocked: this.kd_isLocked,
+                            intruderSnapshotUrl: photoUrl
+                        };
+                        this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
                     }
                 }
             } catch {
@@ -451,13 +458,13 @@ export class kd_LockEngine {
                 if (photoUrl) {
                     this.kd_lastIntruderSnapshot = {
                         dataUrl: photoUrl,
-                        reason: `DOM Anti-Tamper Triggered: ${details.type}`,
+                        reason: `DOM Anti-Tamper Triggered: ${details.reason}`,
                         timestamp: Date.now()
                     };
                 }
             }).catch(() => {});
         }
-        this.kd_sendSecurityAlert(`DOM Tamper event detected (${details.type}): ${details.reason}`, true);
+        this.kd_sendSecurityAlert(`DOM Tamper event detected: ${details.reason}`, true);
     }
 
     private kd_isLockoutActive(): boolean {
@@ -501,10 +508,10 @@ export class kd_LockEngine {
 
         if (this.kd_options.onSecurityAlert) {
             const alertDetails: kd_SecurityAlertDetails = {
-                message,
+                reason: message,
                 timestamp: now,
-                tamperCount: this.kd_tamperCount,
-                actionCount: ++this.kd_actionCount
+                actionCount: ++this.kd_actionCount,
+                isLocked: this.kd_isLocked
             };
             this.kd_options.onSecurityAlert(alertDetails);
         }
