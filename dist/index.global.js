@@ -73,7 +73,15 @@ var ScreenGuardLib = (() => {
       } catch {
       }
     }
-    return kd_sha256(`${salt}:${password}:${iterations}`);
+    return kd_pureJsPbkdf2(password, salt, iterations);
+  }
+  function kd_pureJsPbkdf2(password, salt, iterations) {
+    let currentHash = kd_jsSha256(`${salt}:${password}`);
+    const saltPass = `${salt}:${password}`;
+    for (let i = 1; i < iterations; i++) {
+      currentHash = kd_jsSha256(`${currentHash}:${saltPass}:${i % 16}`);
+    }
+    return currentHash;
   }
   function kd_jsSha256(str) {
     const encoder = new TextEncoder();
@@ -250,7 +258,15 @@ var ScreenGuardLib = (() => {
         } catch {
         }
       }
-      return kd_workerSha256(`${salt}:${password}:${iterations}`);
+      return kd_workerPureJsPbkdf2(password, salt, iterations);
+    }
+    function kd_workerPureJsPbkdf2(password, salt, iterations) {
+      let currentHash = kd_workerJsSha256(`${salt}:${password}`);
+      const saltPass = `${salt}:${password}`;
+      for (let i = 1; i < iterations; i++) {
+        currentHash = kd_workerJsSha256(`${currentHash}:${saltPass}:${i % 16}`);
+      }
+      return currentHash;
     }
     function kd_workerJsSha256(str) {
       const encoder = new TextEncoder();
@@ -397,6 +413,10 @@ var ScreenGuardLib = (() => {
           this.kd_worker.onerror = () => {
             this.kd_callbacks.forEach((cb) => cb.reject(new Error("Worker script error")));
             this.kd_callbacks.clear();
+            if (this.kd_worker) {
+              this.kd_worker.terminate();
+              this.kd_worker = null;
+            }
           };
         } catch {
           this.kd_worker = null;
@@ -408,20 +428,28 @@ var ScreenGuardLib = (() => {
         return await kd_pbkdf2(password, salt, iterations);
       }
       const id = `pb_${++this.kd_msgId}`;
-      return new Promise((resolve, reject) => {
-        this.kd_callbacks.set(id, { resolve, reject });
-        this.kd_worker.postMessage({ id, type: "PBKDF2", password, salt, iterations });
-      });
+      try {
+        return await new Promise((resolve, reject) => {
+          this.kd_callbacks.set(id, { resolve, reject });
+          this.kd_worker.postMessage({ id, type: "PBKDF2", password, salt, iterations });
+        });
+      } catch {
+        return await kd_pbkdf2(password, salt, iterations);
+      }
     }
     async kd_sha256(data) {
       if (!this.kd_worker) {
         return await kd_sha256(data);
       }
       const id = `sha_${++this.kd_msgId}`;
-      return new Promise((resolve, reject) => {
-        this.kd_callbacks.set(id, { resolve, reject });
-        this.kd_worker.postMessage({ id, type: "SHA256", data });
-      });
+      try {
+        return await new Promise((resolve, reject) => {
+          this.kd_callbacks.set(id, { resolve, reject });
+          this.kd_worker.postMessage({ id, type: "SHA256", data });
+        });
+      } catch {
+        return await kd_sha256(data);
+      }
     }
   };
   var kd_workerCrypto = new kd_WorkerCryptoManager();
@@ -600,6 +628,7 @@ var ScreenGuardLib = (() => {
     constructor(onTamperDetected) {
       this.kd_observer = null;
       this.kd_tamperCheckTimer = null;
+      this.kd_periodicIntervalId = null;
       this.kd_storageListener = null;
       this.kd_onTamperDetected = onTamperDetected;
     }
@@ -612,7 +641,7 @@ var ScreenGuardLib = (() => {
             this.kd_scheduleTamperCheck();
           }
         });
-        this.kd_observer.observe(document.body, {
+        this.kd_observer.observe(document.documentElement, {
           childList: true,
           attributes: true,
           subtree: true,
@@ -630,6 +659,9 @@ var ScreenGuardLib = (() => {
         }
       };
       window.addEventListener("storage", this.kd_storageListener);
+      this.kd_periodicIntervalId = setInterval(() => {
+        this.kd_verifyOverlayIntegrity();
+      }, 500);
     }
     kd_stopMonitoring() {
       if (this.kd_observer) {
@@ -639,6 +671,10 @@ var ScreenGuardLib = (() => {
       if (this.kd_tamperCheckTimer) {
         clearTimeout(this.kd_tamperCheckTimer);
         this.kd_tamperCheckTimer = null;
+      }
+      if (this.kd_periodicIntervalId) {
+        clearInterval(this.kd_periodicIntervalId);
+        this.kd_periodicIntervalId = null;
       }
       if (this.kd_storageListener && typeof window !== "undefined") {
         window.removeEventListener("storage", this.kd_storageListener);
@@ -675,10 +711,11 @@ var ScreenGuardLib = (() => {
       const opacity = parseFloat(computedStyle.opacity || "1");
       const zIndexStr = computedStyle.zIndex;
       const zIndex = parseInt(zIndexStr, 10);
-      if (display === "none" || visibility === "hidden" || opacity < 0.1) {
+      const rect = lockOverlay.getBoundingClientRect();
+      if (display === "none" || visibility === "hidden" || opacity < 0.1 || rect.height < 10) {
         this.kd_onTamperDetected({
           timestamp: Date.now(),
-          reason: `Lock overlay style tampering detected (display: ${display}, visibility: ${visibility}, opacity: ${opacity}).`
+          reason: `Lock overlay style/CSS tampering detected (display: ${display}, visibility: ${visibility}, opacity: ${opacity}, height: ${rect.height}px).`
         });
         return;
       }
@@ -689,6 +726,15 @@ var ScreenGuardLib = (() => {
         });
         return;
       }
+      if (typeof localStorage !== "undefined") {
+        const isLockedSaved = localStorage.getItem("kd_screen_guard_is_locked") || sessionStorage.getItem("kd_screen_guard_is_locked");
+        if (isLockedSaved !== "true") {
+          this.kd_onTamperDetected({
+            timestamp: Date.now(),
+            reason: "Same-tab storage clearing detected: Lock storage key was deleted."
+          });
+        }
+      }
     }
     kd_isMutationRelevant(mutations) {
       for (const mutation of mutations) {
@@ -696,6 +742,16 @@ var ScreenGuardLib = (() => {
           for (let i = 0; i < mutation.removedNodes.length; i++) {
             const node = mutation.removedNodes[i];
             if (node.id === "kd-lock-screen" || node.querySelector && node.querySelector("#kd-lock-screen")) {
+              return true;
+            }
+          }
+          for (let i = 0; i < mutation.addedNodes.length; i++) {
+            const node = mutation.addedNodes[i];
+            if (node.tagName === "STYLE" || node.tagName === "LINK") {
+              return true;
+            }
+            const target = mutation.target;
+            if (target && (target.id === "kd-lock-screen" || target.closest && target.closest("#kd-lock-screen"))) {
               return true;
             }
           }
@@ -890,7 +946,7 @@ var ScreenGuardLib = (() => {
         window.speechSynthesis.addEventListener("voiceschanged", this.kd_voicesChangedHandler, { once: true });
         this.kd_voicesFallbackTimer = setTimeout(() => {
           speak();
-        }, 300);
+        }, 1e3);
       } else {
         speak();
       }
@@ -927,10 +983,6 @@ var ScreenGuardLib = (() => {
       const weakEvents = ["mousemove", "scroll"];
       const strongEvents = ["click", "keydown", "mousedown", "touchstart"];
       this.kd_trapHandler = (evt) => {
-        const targetEl = evt.target;
-        if (targetEl && (targetEl.tagName === "INPUT" || targetEl.closest("#kd-lock-screen"))) {
-          return;
-        }
         const isStrongGesture = strongEvents.includes(evt.type);
         if (!isStrongGesture) {
           if (!this.kd_isSpeechActive && this.kd_speechEnabled) {
@@ -967,11 +1019,15 @@ var ScreenGuardLib = (() => {
   };
 
   // src/guard/kd_intruder_camera.ts
-  var kd_IntruderCamera = class {
+  var _kd_IntruderCamera = class _kd_IntruderCamera {
     static async kd_captureSnapshot() {
       if (typeof window === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         return null;
       }
+      if (this.kd_isCapturing) {
+        return null;
+      }
+      this.kd_isCapturing = true;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }
@@ -1012,13 +1068,17 @@ var ScreenGuardLib = (() => {
           function kd_stopStream() {
             stream.getTracks().forEach((track) => track.stop());
             video.srcObject = null;
+            _kd_IntruderCamera.kd_isCapturing = false;
           }
         });
       } catch {
+        this.kd_isCapturing = false;
         return null;
       }
     }
   };
+  _kd_IntruderCamera.kd_isCapturing = false;
+  var kd_IntruderCamera = _kd_IntruderCamera;
 
   // src/guard/kd_webauthn.ts
   var kd_WebAuthnManager = class {
@@ -1088,9 +1148,22 @@ var ScreenGuardLib = (() => {
       }
     }
   };
-  function kd_stringToBuffer(str) {
-    const encoder = new TextEncoder();
-    return encoder.encode(str);
+  function kd_stringToBuffer(base64UrlStr) {
+    try {
+      let base64 = base64UrlStr.replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4) {
+        base64 += "=";
+      }
+      const binaryStr = typeof window !== "undefined" ? atob(base64) : "";
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      return bytes;
+    } catch {
+      const encoder = new TextEncoder();
+      return encoder.encode(base64UrlStr);
+    }
   }
 
   // src/ui/kd_lock_ui.ts
@@ -1200,6 +1273,7 @@ var ScreenGuardLib = (() => {
         `;
       document.body.insertAdjacentHTML("beforeend", overlayHTML);
       document.body.classList.add("kd-body-locked");
+      this.kd_setAriaHiddenSiblings(true);
       this.kd_setupFocusTrap();
       this.kd_setupTouchMovePrevention();
       this.kd_setupVisibilitySecurity();
@@ -1207,6 +1281,7 @@ var ScreenGuardLib = (() => {
     }
     kd_removeOverlay() {
       if (typeof document === "undefined") return;
+      this.kd_setAriaHiddenSiblings(false);
       const existing = document.getElementById("kd-lock-screen");
       if (existing) existing.remove();
       document.body.classList.remove("kd-body-locked");
@@ -1282,10 +1357,15 @@ var ScreenGuardLib = (() => {
         });
       }
     }
-    kd_showError(msg) {
+    kd_showError(msgOrElementId, message) {
       if (typeof document === "undefined") return;
-      const el = document.getElementById("kd-password-error") || document.getElementById("kd-recovery-error") || document.getElementById("kd-reset-error");
-      if (el) el.textContent = msg;
+      if (message !== void 0) {
+        const el = document.getElementById(msgOrElementId);
+        if (el) el.textContent = message;
+      } else {
+        const el = document.getElementById("kd-password-error") || document.getElementById("kd-recovery-error") || document.getElementById("kd-reset-error");
+        if (el) el.textContent = msgOrElementId;
+      }
     }
     kd_clearError() {
       this.kd_showError("");
@@ -1294,15 +1374,39 @@ var ScreenGuardLib = (() => {
       this.kd_showError(`Too many failed attempts. Locked out for ${secondsRemaining}s.`);
       const unlockBtn = document.getElementById("kd-unlock-btn");
       const passInput = document.getElementById("kd-lock-password-input");
-      if (unlockBtn) unlockBtn.disabled = true;
+      if (unlockBtn) {
+        unlockBtn.disabled = true;
+        unlockBtn.setAttribute("data-lockout", "true");
+      }
       if (passInput) passInput.disabled = true;
     }
     kd_clearLockoutError() {
       this.kd_showError("");
       const unlockBtn = document.getElementById("kd-unlock-btn");
       const passInput = document.getElementById("kd-lock-password-input");
-      if (unlockBtn) unlockBtn.disabled = false;
+      if (unlockBtn) {
+        unlockBtn.disabled = false;
+        unlockBtn.removeAttribute("data-lockout");
+      }
       if (passInput) passInput.disabled = false;
+    }
+    kd_destroy() {
+      this.kd_removeOverlay();
+    }
+    kd_setAriaHiddenSiblings(hide) {
+      if (typeof document === "undefined") return;
+      const children = Array.from(document.body.children);
+      children.forEach((child) => {
+        if (child.id !== "kd-lock-screen" && child.tagName !== "SCRIPT" && child.tagName !== "STYLE") {
+          if (hide) {
+            child.setAttribute("aria-hidden", "true");
+            child.setAttribute("data-kd-aria-hidden", "true");
+          } else if (child.getAttribute("data-kd-aria-hidden") === "true") {
+            child.removeAttribute("aria-hidden");
+            child.removeAttribute("data-kd-aria-hidden");
+          }
+        }
+      });
     }
     kd_setupVisibilitySecurity() {
       if (typeof document === "undefined") return;
@@ -1557,6 +1661,7 @@ var ScreenGuardLib = (() => {
       this.kd_attachedButtons = [];
       this.kd_historySecurityHandler = null;
       this.kd_lastIntruderSnapshot = null;
+      this.kd_isHashing = false;
       this.kd_options = { ...options };
     }
     get kd_isLockedState() {
@@ -1716,6 +1821,7 @@ var ScreenGuardLib = (() => {
       }
       if (this.kd_isLocked && this.kd_ui) {
         const currentViewId = this.kd_ui.kd_currentActiveViewId;
+        this.kd_ui.kd_destroy();
         this.kd_ui = new kd_LockUI(
           this.kd_options,
           (pass) => this.kd_verifyAndUnlock(pass),
@@ -1739,20 +1845,25 @@ var ScreenGuardLib = (() => {
       };
     }
     async kd_verifyAndUnlock(enteredPassword) {
-      if (this.kd_isLockoutActive()) {
+      if (this.kd_isLockoutActive() || this.kd_isHashing) {
         return false;
       }
       if (!this.kd_passwordHash || !enteredPassword) {
         this.kd_handleFailedAttempt("Empty password attempt or unconfigured password hash.");
         return false;
       }
-      const hash = await this.kd_hashText(enteredPassword);
-      if (hash === this.kd_passwordHash) {
-        this.kd_unlock();
-        return true;
+      this.kd_isHashing = true;
+      try {
+        const hash = await this.kd_hashText(enteredPassword);
+        if (hash === this.kd_passwordHash) {
+          this.kd_unlock();
+          return true;
+        }
+        this.kd_handleFailedAttempt("Incorrect password entered.");
+        return false;
+      } finally {
+        this.kd_isHashing = false;
       }
-      this.kd_handleFailedAttempt("Incorrect password entered.");
-      return false;
     }
     async kd_verifyWebAuthn() {
       if (this.kd_isLockoutActive()) {
@@ -1863,36 +1974,6 @@ var ScreenGuardLib = (() => {
     async kd_handleFailedAttempt(reason) {
       this.kd_failedAttemptsCount++;
       const maxAttempts = this.kd_options.maxFailedAttempts || 5;
-      if (this.kd_options.enableIntruderSnapshot) {
-        try {
-          const photoUrl = await kd_IntruderCamera.kd_captureSnapshot();
-          if (photoUrl) {
-            this.kd_lastIntruderSnapshot = {
-              dataUrl: photoUrl,
-              reason: `Unauthorized unlock attempt: ${reason}`,
-              timestamp: Date.now()
-            };
-            if (this.kd_options.onIntruderCaptured) {
-              const alertDetails = {
-                reason,
-                timestamp: Date.now(),
-                actionCount: this.kd_actionCount,
-                isLocked: this.kd_isLocked,
-                intruderSnapshotUrl: photoUrl
-              };
-              this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
-            }
-          }
-        } catch {
-        }
-      }
-      if (this.kd_options.enableLockout === false) {
-        if (this.kd_ui) {
-          this.kd_ui.kd_showError("Incorrect password entered.");
-        }
-        this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
-        return;
-      }
       if (this.kd_failedAttemptsCount >= maxAttempts) {
         this.kd_lockoutCount++;
         const baseDuration = this.kd_options.lockoutDurationSeconds || 30;
@@ -1925,6 +2006,28 @@ var ScreenGuardLib = (() => {
           }
         }
         this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
+      }
+      if (this.kd_options.enableIntruderSnapshot) {
+        kd_IntruderCamera.kd_captureSnapshot().then((photoUrl) => {
+          if (photoUrl) {
+            this.kd_lastIntruderSnapshot = {
+              dataUrl: photoUrl,
+              reason: `Unauthorized unlock attempt: ${reason}`,
+              timestamp: Date.now()
+            };
+            if (this.kd_options.onIntruderCaptured) {
+              const alertDetails = {
+                reason,
+                timestamp: Date.now(),
+                actionCount: this.kd_actionCount,
+                isLocked: this.kd_isLocked,
+                intruderSnapshotUrl: photoUrl
+              };
+              this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
+            }
+          }
+        }).catch(() => {
+        });
       }
     }
     kd_handleTamperEvent(details) {

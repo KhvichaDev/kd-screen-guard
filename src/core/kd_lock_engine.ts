@@ -234,6 +234,7 @@ export class kd_LockEngine {
 
         if (this.kd_isLocked && this.kd_ui) {
             const currentViewId = this.kd_ui.kd_currentActiveViewId;
+            this.kd_ui.kd_destroy();
             this.kd_ui = new kd_LockUI(
                 this.kd_options,
                 (pass: string) => this.kd_verifyAndUnlock(pass),
@@ -258,8 +259,10 @@ export class kd_LockEngine {
         };
     }
 
+    private kd_isHashing: boolean = false;
+
     public async kd_verifyAndUnlock(enteredPassword: string): Promise<boolean> {
-        if (this.kd_isLockoutActive()) {
+        if (this.kd_isLockoutActive() || this.kd_isHashing) {
             return false;
         }
 
@@ -268,14 +271,19 @@ export class kd_LockEngine {
             return false;
         }
 
-        const hash = await this.kd_hashText(enteredPassword);
-        if (hash === this.kd_passwordHash) {
-            this.kd_unlock();
-            return true;
-        }
+        this.kd_isHashing = true;
+        try {
+            const hash = await this.kd_hashText(enteredPassword);
+            if (hash === this.kd_passwordHash) {
+                this.kd_unlock();
+                return true;
+            }
 
-        this.kd_handleFailedAttempt('Incorrect password entered.');
-        return false;
+            this.kd_handleFailedAttempt('Incorrect password entered.');
+            return false;
+        } finally {
+            this.kd_isHashing = false;
+        }
     }
 
     public async kd_verifyWebAuthn(): Promise<boolean> {
@@ -413,39 +421,7 @@ export class kd_LockEngine {
         this.kd_failedAttemptsCount++;
         const maxAttempts = this.kd_options.maxFailedAttempts || 5;
 
-        if (this.kd_options.enableIntruderSnapshot) {
-            try {
-                const photoUrl = await kd_IntruderCamera.kd_captureSnapshot();
-                if (photoUrl) {
-                    this.kd_lastIntruderSnapshot = {
-                        dataUrl: photoUrl,
-                        reason: `Unauthorized unlock attempt: ${reason}`,
-                        timestamp: Date.now()
-                    };
-                    if (this.kd_options.onIntruderCaptured) {
-                        const alertDetails: kd_SecurityAlertDetails = {
-                            reason,
-                            timestamp: Date.now(),
-                            actionCount: this.kd_actionCount,
-                            isLocked: this.kd_isLocked,
-                            intruderSnapshotUrl: photoUrl
-                        };
-                        this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
-                    }
-                }
-            } catch {
-                // Ignore photo capture rejection
-            }
-        }
-
-        if (this.kd_options.enableLockout === false) {
-            if (this.kd_ui) {
-                this.kd_ui.kd_showError('Incorrect password entered.');
-            }
-            this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
-            return;
-        }
-
+        // CRITICAL FIX: Increment and persist lockout security state IMMEDIATELY to prevent page refresh race conditions
         if (this.kd_failedAttemptsCount >= maxAttempts) {
             this.kd_lockoutCount++;
             const baseDuration = this.kd_options.lockoutDurationSeconds || 30;
@@ -453,15 +429,15 @@ export class kd_LockEngine {
 
             if (this.kd_options.enableExponentialLockout !== false) {
                 if (this.kd_lockoutCount === 1) {
-                    durationSec = baseDuration; // 30s
+                    durationSec = baseDuration;
                 } else if (this.kd_lockoutCount === 2) {
-                    durationSec = Math.max(baseDuration * 2, 60); // 1m
+                    durationSec = Math.max(baseDuration * 2, 60);
                 } else if (this.kd_lockoutCount === 3) {
-                    durationSec = Math.max(baseDuration * 10, 300); // 5m
+                    durationSec = Math.max(baseDuration * 10, 300);
                 } else if (this.kd_lockoutCount === 4) {
-                    durationSec = Math.max(baseDuration * 30, 900); // 15m
+                    durationSec = Math.max(baseDuration * 30, 900);
                 } else {
-                    durationSec = Math.max(baseDuration * 120, 3600); // 1h max
+                    durationSec = Math.max(baseDuration * 120, 3600);
                 }
             }
 
@@ -481,7 +457,32 @@ export class kd_LockEngine {
             }
             this.kd_sendSecurityAlert(`Failed authentication attempt: ${reason}`, false);
         }
+
+        // Trigger webcam snapshot asynchronously in non-blocking background
+        if (this.kd_options.enableIntruderSnapshot) {
+            kd_IntruderCamera.kd_captureSnapshot().then((photoUrl) => {
+                if (photoUrl) {
+                    this.kd_lastIntruderSnapshot = {
+                        dataUrl: photoUrl,
+                        reason: `Unauthorized unlock attempt: ${reason}`,
+                        timestamp: Date.now()
+                    };
+                    if (this.kd_options.onIntruderCaptured) {
+                        const alertDetails: kd_SecurityAlertDetails = {
+                            reason,
+                            timestamp: Date.now(),
+                            actionCount: this.kd_actionCount,
+                            isLocked: this.kd_isLocked,
+                            intruderSnapshotUrl: photoUrl
+                        };
+                        this.kd_options.onIntruderCaptured(photoUrl, alertDetails);
+                    }
+                }
+            }).catch(() => {});
+        }
     }
+
+
 
 
     private kd_handleTamperEvent(details: kd_TamperDetails): void {

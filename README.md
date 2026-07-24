@@ -1,4 +1,4 @@
-# 🛡️ kd-screen-guard
+# 🛡️ KD Screen Guard
 
 > **Zero-Dependency, Tamper-Resistant, High-Security Lock Screen Overlay & Biometric Guard for Enterprise Web Applications.**
 
@@ -283,8 +283,13 @@ guard.destroy();                         // Clean up event listeners and timers
 
 ---
 
-## 🛡️ Security Standards & CSP Compliance
+## 🛡️ Security Standards & Threat Model
 
+- **WebAuthn Client-Side Boundary**: Client-side WebAuthn verification provides instant hardware biometric convenience (Touch ID / Face ID / Windows Hello). For enterprise-grade server validation, integrate WebAuthn assertion callbacks with your backend public key registry.
+- **Password Reset Persistence**: When using `onPasswordReset(newHash)`, developers should persist `newHash` to their backend API or storage so new credentials survive full application reloads.
+- **Client-Side System Clock Boundary**: Lockout timestamps are computed relative to real-time boundaries. For maximum security against local OS clock tampering, integrate `onSecurityAlert` callbacks with server-side session revocation.
+- **BroadcastChannel Isolation**: For multi-application origins, developers should provide a unique `channelName` (e.g. `channelName: 'app1_guard'`) to prevent cross-app channel collision.
+- **Screen Reader Isolation**: Dynamically sets `aria-hidden="true"` on all body background elements while locked to prevent accessibility tool text leakage.
 - **Content Security Policy (CSP)**: Fully compatible with strict CSP headers (`script-src 'self' blob:`).
 - **OWASP Alignment**: Security design aligned with OWASP recommendations against Session Hijacking, Clickjacking, UI Redressing, and Brute-Force Key Enumeration.
 - **Zero Third-Party Dependencies**: No third-party runtime dependencies, minimizing supply-chain attack surface.

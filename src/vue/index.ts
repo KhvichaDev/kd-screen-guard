@@ -3,7 +3,7 @@
  * Provides useScreenGuard() composable for Vue 3 with reactive ref state and automatic lifecycle hooks.
  */
 
-import { ref, onMounted, onUnmounted, Ref } from 'vue';
+import { ref, watch, onMounted, onUnmounted, Ref } from 'vue';
 import { ScreenGuard } from '../index';
 import { kd_ScreenGuardOptions, kd_LockState } from '../types';
 
@@ -35,6 +35,12 @@ export function useScreenGuard(options: kd_ScreenGuardOptions = {}): useVueScree
             isLocked.value = guardInstance.isLocked;
         }
     });
+
+    watch(() => options, (newOptions) => {
+        if (guardInstance) {
+            guardInstance.updateOptions(newOptions);
+        }
+    }, { deep: true });
 
     onUnmounted(() => {
         if (guardInstance) {

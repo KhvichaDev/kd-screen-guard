@@ -51,10 +51,19 @@ function kd_workerMain() {
                 const hashArray = Array.from(new Uint8Array(derivedBits));
                 return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
             } catch {
-                // Fallback to SHA-256 iterations fallback
+                // Fallback to Pure JS iterative PBKDF2 loop
             }
         }
-        return kd_workerSha256(`${salt}:${password}:${iterations}`);
+        return kd_workerPureJsPbkdf2(password, salt, iterations);
+    }
+
+    function kd_workerPureJsPbkdf2(password: string, salt: string, iterations: number): string {
+        let currentHash = kd_workerJsSha256(`${salt}:${password}`);
+        const saltPass = `${salt}:${password}`;
+        for (let i = 1; i < iterations; i++) {
+            currentHash = kd_workerJsSha256(`${currentHash}:${saltPass}:${i % 16}`);
+        }
+        return currentHash;
     }
 
     function kd_workerJsSha256(str: string): string {
@@ -138,6 +147,10 @@ class kd_WorkerCryptoManager {
                 this.kd_worker.onerror = () => {
                     this.kd_callbacks.forEach((cb) => cb.reject(new Error('Worker script error')));
                     this.kd_callbacks.clear();
+                    if (this.kd_worker) {
+                        this.kd_worker.terminate();
+                        this.kd_worker = null;
+                    }
                 };
             } catch {
                 this.kd_worker = null;
@@ -151,10 +164,14 @@ class kd_WorkerCryptoManager {
         }
 
         const id = `pb_${++this.kd_msgId}`;
-        return new Promise<string>((resolve, reject) => {
-            this.kd_callbacks.set(id, { resolve, reject });
-            this.kd_worker!.postMessage({ id, type: 'PBKDF2', password, salt, iterations });
-        });
+        try {
+            return await new Promise<string>((resolve, reject) => {
+                this.kd_callbacks.set(id, { resolve, reject });
+                this.kd_worker!.postMessage({ id, type: 'PBKDF2', password, salt, iterations });
+            });
+        } catch {
+            return await kd_pbkdf2(password, salt, iterations);
+        }
     }
 
     public async kd_sha256(data: string): Promise<string> {
@@ -163,10 +180,14 @@ class kd_WorkerCryptoManager {
         }
 
         const id = `sha_${++this.kd_msgId}`;
-        return new Promise<string>((resolve, reject) => {
-            this.kd_callbacks.set(id, { resolve, reject });
-            this.kd_worker!.postMessage({ id, type: 'SHA256', data });
-        });
+        try {
+            return await new Promise<string>((resolve, reject) => {
+                this.kd_callbacks.set(id, { resolve, reject });
+                this.kd_worker!.postMessage({ id, type: 'SHA256', data });
+            });
+        } catch {
+            return await kd_sha256(data);
+        }
     }
 }
 

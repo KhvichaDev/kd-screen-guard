@@ -81,7 +81,20 @@ export class kd_WebAuthnManager {
     }
 }
 
-function kd_stringToBuffer(str: string): Uint8Array {
-    const encoder = new TextEncoder();
-    return encoder.encode(str);
+function kd_stringToBuffer(base64UrlStr: string): Uint8Array {
+    try {
+        let base64 = base64UrlStr.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) {
+            base64 += '=';
+        }
+        const binaryStr = typeof window !== 'undefined' ? atob(base64) : '';
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+        }
+        return bytes;
+    } catch {
+        const encoder = new TextEncoder();
+        return encoder.encode(base64UrlStr);
+    }
 }

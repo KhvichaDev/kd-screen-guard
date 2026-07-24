@@ -204,6 +204,7 @@ declare class kd_LockEngine {
     kd_unlock(isSilent?: boolean): void;
     kd_updateOptions(newOptions: Partial<kd_ScreenGuardOptions>): Promise<void>;
     kd_getState(): kd_LockState;
+    private kd_isHashing;
     kd_verifyAndUnlock(enteredPassword: string): Promise<boolean>;
     kd_verifyWebAuthn(): Promise<boolean>;
     kd_verifyRecoveryAnswer(enteredAnswer: string): Promise<boolean>;

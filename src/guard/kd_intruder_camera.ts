@@ -4,10 +4,18 @@
  */
 
 export class kd_IntruderCamera {
+    private static kd_isCapturing: boolean = false;
+
     public static async kd_captureSnapshot(): Promise<string | null> {
         if (typeof window === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             return null;
         }
+
+        if (this.kd_isCapturing) {
+            return null;
+        }
+
+        this.kd_isCapturing = true;
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -53,9 +61,11 @@ export class kd_IntruderCamera {
                 function kd_stopStream() {
                     stream.getTracks().forEach((track) => track.stop());
                     video.srcObject = null;
+                    kd_IntruderCamera.kd_isCapturing = false;
                 }
             });
         } catch {
+            this.kd_isCapturing = false;
             return null;
         }
     }

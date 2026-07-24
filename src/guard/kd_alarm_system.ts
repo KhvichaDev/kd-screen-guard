@@ -235,7 +235,7 @@ export class kd_AlarmSystem {
 
             this.kd_voicesFallbackTimer = setTimeout(() => {
                 speak();
-            }, 300);
+            }, 1000);
         } else {
             speak();
         }
@@ -282,11 +282,6 @@ export class kd_AlarmSystem {
         const strongEvents = ['click', 'keydown', 'mousedown', 'touchstart'];
 
         this.kd_trapHandler = (evt: Event) => {
-            const targetEl = evt.target as HTMLElement;
-            if (targetEl && (targetEl.tagName === 'INPUT' || targetEl.closest('#kd-lock-screen'))) {
-                return;
-            }
-
             const isStrongGesture = strongEvents.includes(evt.type);
 
             if (!isStrongGesture) {

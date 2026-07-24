@@ -53,12 +53,22 @@ export async function kd_pbkdf2(password: string, salt: string, iterations: numb
             const hashArray = Array.from(new Uint8Array(derivedBits));
             return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
         } catch {
-            // Fallback to SHA-256 iterations fallback
+            // Fallback to Pure JS iterative PBKDF2 loop
         }
     }
 
-    return kd_sha256(`${salt}:${password}:${iterations}`);
+    return kd_pureJsPbkdf2(password, salt, iterations);
 }
+
+function kd_pureJsPbkdf2(password: string, salt: string, iterations: number): string {
+    let currentHash = kd_jsSha256(`${salt}:${password}`);
+    const saltPass = `${salt}:${password}`;
+    for (let i = 1; i < iterations; i++) {
+        currentHash = kd_jsSha256(`${currentHash}:${saltPass}:${i % 16}`);
+    }
+    return currentHash;
+}
+
 
 function kd_jsSha256(str: string): string {
     const encoder = new TextEncoder();

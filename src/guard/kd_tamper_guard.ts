@@ -1,6 +1,6 @@
 /**
  * Self-Healing Tamper Guard for kd-screen-guard overlay.
- * Uses MutationObserver to monitor DOM node deletion, inline CSS tampering, z-index modifications, Shadow DOM re-parenting, and LocalStorage tampering, automatically healing the lock screen overlay and storage state.
+ * Uses MutationObserver to monitor DOM node deletion, head style tag injection, inline CSS tampering, z-index modifications, Shadow DOM re-parenting, and LocalStorage tampering in same and cross-tabs.
  */
 
 import { kd_TamperDetails } from '../types';
@@ -9,6 +9,7 @@ export class kd_TamperGuard {
     private kd_observer: MutationObserver | null = null;
     private kd_onTamperDetected: (details: kd_TamperDetails) => void;
     private kd_tamperCheckTimer: ReturnType<typeof setTimeout> | null = null;
+    private kd_periodicIntervalId: ReturnType<typeof setInterval> | null = null;
     private kd_storageListener: ((evt: StorageEvent) => void) | null = null;
 
     constructor(onTamperDetected: (details: kd_TamperDetails) => void) {
@@ -26,7 +27,8 @@ export class kd_TamperGuard {
                 }
             });
 
-            this.kd_observer.observe(document.body, {
+            // Observe whole document (document.documentElement) to catch head style injections and body modifications
+            this.kd_observer.observe(document.documentElement, {
                 childList: true,
                 attributes: true,
                 subtree: true,
@@ -34,6 +36,7 @@ export class kd_TamperGuard {
             });
         }
 
+        // Cross-tab storage listener
         this.kd_storageListener = (evt: StorageEvent) => {
             if (evt.key && evt.key.startsWith('kd_screen_guard_')) {
                 if (evt.newValue === null || evt.newValue === '') {
@@ -46,6 +49,11 @@ export class kd_TamperGuard {
         };
 
         window.addEventListener('storage', this.kd_storageListener);
+
+        // Periodic 500ms integrity check to catch head CSS overrides and same-tab console localStorage clearing
+        this.kd_periodicIntervalId = setInterval(() => {
+            this.kd_verifyOverlayIntegrity();
+        }, 500);
     }
 
     public kd_stopMonitoring(): void {
@@ -56,6 +64,10 @@ export class kd_TamperGuard {
         if (this.kd_tamperCheckTimer) {
             clearTimeout(this.kd_tamperCheckTimer);
             this.kd_tamperCheckTimer = null;
+        }
+        if (this.kd_periodicIntervalId) {
+            clearInterval(this.kd_periodicIntervalId);
+            this.kd_periodicIntervalId = null;
         }
         if (this.kd_storageListener && typeof window !== 'undefined') {
             window.removeEventListener('storage', this.kd_storageListener);
@@ -98,11 +110,12 @@ export class kd_TamperGuard {
         const opacity = parseFloat(computedStyle.opacity || '1');
         const zIndexStr = computedStyle.zIndex;
         const zIndex = parseInt(zIndexStr, 10);
+        const rect = lockOverlay.getBoundingClientRect();
 
-        if (display === 'none' || visibility === 'hidden' || opacity < 0.1) {
+        if (display === 'none' || visibility === 'hidden' || opacity < 0.1 || rect.height < 10) {
             this.kd_onTamperDetected({
                 timestamp: Date.now(),
-                reason: `Lock overlay style tampering detected (display: ${display}, visibility: ${visibility}, opacity: ${opacity}).`
+                reason: `Lock overlay style/CSS tampering detected (display: ${display}, visibility: ${visibility}, opacity: ${opacity}, height: ${rect.height}px).`
             });
             return;
         }
@@ -114,6 +127,17 @@ export class kd_TamperGuard {
             });
             return;
         }
+
+        // Same-tab storage clearing check
+        if (typeof localStorage !== 'undefined') {
+            const isLockedSaved = localStorage.getItem('kd_screen_guard_is_locked') || sessionStorage.getItem('kd_screen_guard_is_locked');
+            if (isLockedSaved !== 'true') {
+                this.kd_onTamperDetected({
+                    timestamp: Date.now(),
+                    reason: 'Same-tab storage clearing detected: Lock storage key was deleted.'
+                });
+            }
+        }
     }
 
     private kd_isMutationRelevant(mutations: MutationRecord[]): boolean {
@@ -122,6 +146,16 @@ export class kd_TamperGuard {
                 for (let i = 0; i < mutation.removedNodes.length; i++) {
                     const node = mutation.removedNodes[i] as HTMLElement;
                     if (node.id === 'kd-lock-screen' || (node.querySelector && node.querySelector('#kd-lock-screen'))) {
+                        return true;
+                    }
+                }
+                for (let i = 0; i < mutation.addedNodes.length; i++) {
+                    const node = mutation.addedNodes[i] as HTMLElement;
+                    if (node.tagName === 'STYLE' || node.tagName === 'LINK') {
+                        return true;
+                    }
+                    const target = mutation.target as HTMLElement;
+                    if (target && (target.id === 'kd-lock-screen' || (target.closest && target.closest('#kd-lock-screen')))) {
                         return true;
                     }
                 }

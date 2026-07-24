@@ -1,9 +1,9 @@
 import {
   ScreenGuard
-} from "../chunk-TGTJHYCA.mjs";
+} from "../chunk-EEH3DOHS.mjs";
 
 // src/vue/index.ts
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 function useScreenGuard(options = {}) {
   const isLocked = ref(false);
   let guardInstance = null;
@@ -21,6 +21,11 @@ function useScreenGuard(options = {}) {
       isLocked.value = guardInstance.isLocked;
     }
   });
+  watch(() => options, (newOptions) => {
+    if (guardInstance) {
+      guardInstance.updateOptions(newOptions);
+    }
+  }, { deep: true });
   onUnmounted(() => {
     if (guardInstance) {
       guardInstance.destroy();

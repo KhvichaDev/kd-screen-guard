@@ -146,6 +146,7 @@ export class kd_LockUI {
         document.body.insertAdjacentHTML('beforeend', overlayHTML);
         document.body.classList.add('kd-body-locked');
 
+        this.kd_setAriaHiddenSiblings(true);
         this.kd_setupFocusTrap();
         this.kd_setupTouchMovePrevention();
         this.kd_setupVisibilitySecurity();
@@ -155,6 +156,7 @@ export class kd_LockUI {
     public kd_removeOverlay(): void {
         if (typeof document === 'undefined') return;
 
+        this.kd_setAriaHiddenSiblings(false);
         const existing = document.getElementById('kd-lock-screen');
         if (existing) existing.remove();
 
@@ -246,10 +248,15 @@ export class kd_LockUI {
         }
     }
 
-    public kd_showError(msg: string): void {
+    public kd_showError(msgOrElementId: string, message?: string): void {
         if (typeof document === 'undefined') return;
-        const el = document.getElementById('kd-password-error') || document.getElementById('kd-recovery-error') || document.getElementById('kd-reset-error');
-        if (el) el.textContent = msg;
+        if (message !== undefined) {
+            const el = document.getElementById(msgOrElementId);
+            if (el) el.textContent = message;
+        } else {
+            const el = document.getElementById('kd-password-error') || document.getElementById('kd-recovery-error') || document.getElementById('kd-reset-error');
+            if (el) el.textContent = msgOrElementId;
+        }
     }
 
     public kd_clearError(): void {
@@ -261,7 +268,10 @@ export class kd_LockUI {
         const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
         const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
 
-        if (unlockBtn) unlockBtn.disabled = true;
+        if (unlockBtn) {
+            unlockBtn.disabled = true;
+            unlockBtn.setAttribute('data-lockout', 'true');
+        }
         if (passInput) passInput.disabled = true;
     }
 
@@ -270,8 +280,31 @@ export class kd_LockUI {
         const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
         const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
 
-        if (unlockBtn) unlockBtn.disabled = false;
+        if (unlockBtn) {
+            unlockBtn.disabled = false;
+            unlockBtn.removeAttribute('data-lockout');
+        }
         if (passInput) passInput.disabled = false;
+    }
+
+    public kd_destroy(): void {
+        this.kd_removeOverlay();
+    }
+
+    private kd_setAriaHiddenSiblings(hide: boolean): void {
+        if (typeof document === 'undefined') return;
+        const children = Array.from(document.body.children);
+        children.forEach((child) => {
+            if (child.id !== 'kd-lock-screen' && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
+                if (hide) {
+                    child.setAttribute('aria-hidden', 'true');
+                    child.setAttribute('data-kd-aria-hidden', 'true');
+                } else if (child.getAttribute('data-kd-aria-hidden') === 'true') {
+                    child.removeAttribute('aria-hidden');
+                    child.removeAttribute('data-kd-aria-hidden');
+                }
+            }
+        });
     }
 
 
