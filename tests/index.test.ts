@@ -101,9 +101,10 @@ describe('2. LockEngine Authentication & State Machine', () => {
 
 describe('3. Password Recovery & Reset Flow', () => {
     it('should verify recovery answer correctly', async () => {
-        const answerHash = await ScreenGuard.hashRecoveryAnswer('Georgia');
+        const answerHash = await ScreenGuard.hashRecoveryAnswer('Georgia', 'test-salt');
         const engine = new kd_LockEngine({
             password: 'oldPassword',
+            salt: 'test-salt',
             securityQuestion: 'Country?',
             securityAnswerHash: answerHash,
             antiTamper: false
@@ -116,9 +117,10 @@ describe('3. Password Recovery & Reset Flow', () => {
     });
 
     it('should reject incorrect recovery answer', async () => {
-        const answerHash = await ScreenGuard.hashRecoveryAnswer('Georgia');
+        const answerHash = await ScreenGuard.hashRecoveryAnswer('Georgia', 'test-salt');
         const engine = new kd_LockEngine({
             password: 'oldPassword',
+            salt: 'test-salt',
             securityQuestion: 'Country?',
             securityAnswerHash: answerHash,
             antiTamper: false
