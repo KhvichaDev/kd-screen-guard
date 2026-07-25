@@ -1,6 +1,6 @@
 {
   "name": "kd-screen-guard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zero-dependency, tamper-resistant, high-security lock screen overlay library with PBKDF2 salted hashing, intruder webcam snapshot review, Web Audio API siren, WebAuthn biometrics, and framework hooks.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -51,6 +51,17 @@
   ],
   "author": "KhvichaDev",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KhvichaDev/kd-screen-guard.git"
+  },
+  "homepage": "https://github.com/KhvichaDev/kd-screen-guard#readme",
+  "bugs": {
+    "url": "https://github.com/KhvichaDev/kd-screen-guard/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@types/react": "^18.3.3",
     "happy-dom": "^14.0.0",
