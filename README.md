@@ -4,15 +4,12 @@
 
 [![KD Screen Guard Video Overview](kd_screen_guard_banner.jpg)](https://www.youtube.com/watch?v=q5tuCYqEn1w)
 
-[![NPM Version](https://img.shields.io/npm/v/kd-screen-guard.svg)](https://www.npmjs.com/package/kd-screen-guard)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Live Demo](https://img.shields.io/badge/🎮%20Live%20Demo-khvichadev.github.io-blue.svg)](https://khvichadev.github.io/kd-screen-guard/demo/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen.svg)]()
-[![Bundle Size](https://img.shields.io/badge/Minified%20%2B%20Gzip-%3C%208kB-brightgreen.svg)]()
 [![Tests](https://img.shields.io/badge/Tests-17%20Passed-brightgreen.svg)]()
 [![OWASP Aligned](https://img.shields.io/badge/OWASP-Aligned%20Design-blue.svg)]()
-
-[🎮 **Live Interactive Demo**](https://khvichadev.github.io/kd-screen-guard/demo/) | [📖 **Documentation**](https://github.com/KhvichaDev/kd-screen-guard#readme)
 
 `kd-screen-guard` is a lightweight, zero-dependency JavaScript/TypeScript security library designed to protect sensitive enterprise applications with a hardened, tamper-resistant lock screen overlay. Built with **WebAuthn biometrics**, **Webcam Intruder Snapshots**, **Off-Main-Thread Web Worker cryptography**, **PBKDF2 salted key derivation**, **built-in hardware Web Audio sirens**, and **native React/Vue 3 wrappers**.
 
