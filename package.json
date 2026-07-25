@@ -1,6 +1,6 @@
 {
   "name": "kd-screen-guard",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "description": "Zero-dependency, tamper-resistant, high-security lock screen overlay library with PBKDF2 salted hashing, intruder webcam snapshot review, Web Audio API siren, WebAuthn biometrics, and framework hooks.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
