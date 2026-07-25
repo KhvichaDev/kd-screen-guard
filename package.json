@@ -60,7 +60,8 @@
     "url": "https://github.com/KhvichaDev/kd-screen-guard/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
