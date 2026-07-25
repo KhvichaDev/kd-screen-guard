@@ -28,7 +28,7 @@ function kd_workerMain() {
         if (typeof self !== 'undefined' && self.crypto && self.crypto.subtle) {
             try {
                 const encoder = new TextEncoder();
-                const buffer = encoder.encode(data);
+                const buffer = new Uint8Array(encoder.encode(data));
                 const hashBuffer = await self.crypto.subtle.digest('SHA-256', buffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
