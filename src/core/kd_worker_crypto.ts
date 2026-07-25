@@ -28,7 +28,7 @@ function kd_workerMain() {
         if (typeof self !== 'undefined' && self.crypto && self.crypto.subtle) {
             try {
                 const encoder = new TextEncoder();
-                const buffer = new Uint8Array(encoder.encode(data));
+                const buffer = encoder.encode(data);
                 const hashBuffer = await self.crypto.subtle.digest('SHA-256', buffer);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -124,10 +124,7 @@ class kd_WorkerCryptoManager {
     private kd_msgId: number = 0;
 
     constructor() {
-        const isTestEnv = (typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || process.env?.VITEST === 'true')) ||
-                          (typeof navigator !== 'undefined' && (navigator.userAgent.includes('happy-dom') || navigator.userAgent.includes('jsdom')));
-
-        if (!isTestEnv && typeof window !== 'undefined' && typeof Worker !== 'undefined' && typeof Blob !== 'undefined') {
+        if (typeof window !== 'undefined' && typeof Worker !== 'undefined' && typeof Blob !== 'undefined') {
             try {
                 const code = '(' + kd_workerMain.toString() + ')();';
                 const blob = new Blob([code], { type: 'application/javascript' });
