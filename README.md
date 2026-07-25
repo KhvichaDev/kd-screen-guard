@@ -4,12 +4,14 @@
 
 [![KD Screen Guard Video Overview](kd_screen_guard_banner.jpg)](https://www.youtube.com/watch?v=q5tuCYqEn1w)
 
-[![Live Demo](https://img.shields.io/badge/🎮%20Live%20Demo-blue.svg)](https://khvichadev.github.io/kd-screen-guard/demo/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)
-![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen.svg)
-![Tests](https://img.shields.io/badge/Tests-17%20Passed-brightgreen.svg)
-![OWASP Aligned](https://img.shields.io/badge/OWASP-Aligned%20Design-blue.svg)
+<p align="left">
+  <a href="https://khvichadev.github.io/kd-screen-guard/demo/"><img src="https://img.shields.io/badge/🎮%20Live%20Demo-blue.svg" alt="Live Demo"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/TypeScript-5.0+-blue.svg" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Dependencies-0-brightgreen.svg" alt="Dependencies">
+  <img src="https://img.shields.io/badge/Tests-17%20Passed-brightgreen.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/OWASP-Aligned%20Design-blue.svg" alt="OWASP Aligned">
+</p>
 
 `kd-screen-guard` is a lightweight, zero-dependency JavaScript/TypeScript security library designed to protect sensitive enterprise applications with a hardened, tamper-resistant lock screen overlay. Built with **WebAuthn biometrics**, **Webcam Intruder Snapshots**, **Off-Main-Thread Web Worker cryptography**, **PBKDF2 salted key derivation**, **built-in hardware Web Audio sirens**, and **native React/Vue 3 wrappers**.
 
