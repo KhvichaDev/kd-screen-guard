@@ -2,6 +2,8 @@
 
 > **Zero-Dependency, Tamper-Resistant, High-Security Lock Screen Overlay & Biometric Guard for Enterprise Web Applications.**
 
+[![KD Screen Guard Video Overview](kd_screen_guard_banner.jpg)](https://www.youtube.com/watch?v=mphDe1yu2YA)
+
 [![NPM Version](https://img.shields.io/npm/v/kd-screen-guard.svg)](https://www.npmjs.com/package/kd-screen-guard)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
