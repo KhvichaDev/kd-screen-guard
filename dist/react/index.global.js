@@ -2561,7 +2561,8 @@ var ScreenGuardLib = (() => {
       this.kd_worker = null;
       this.kd_callbacks = /* @__PURE__ */ new Map();
       this.kd_msgId = 0;
-      if (typeof window !== "undefined" && typeof Worker !== "undefined" && typeof Blob !== "undefined") {
+      const isTestEnv = typeof process !== "undefined" && (process.env?.NODE_ENV === "test" || process.env?.VITEST === "true") || typeof navigator !== "undefined" && (navigator.userAgent.includes("happy-dom") || navigator.userAgent.includes("jsdom"));
+      if (!isTestEnv && typeof window !== "undefined" && typeof Worker !== "undefined" && typeof Blob !== "undefined") {
         try {
           const code = "(" + kd_workerMain.toString() + ")();";
           const blob = new Blob([code], { type: "application/javascript" });
