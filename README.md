@@ -9,7 +9,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/TypeScript-5.0+-blue.svg" alt="TypeScript">
   <img src="https://img.shields.io/badge/Dependencies-0-brightgreen.svg" alt="Dependencies">
-  <img src="https://img.shields.io/badge/Tests-17%20Passed-brightgreen.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-20%20Passed-brightgreen.svg" alt="Tests">
   <img src="https://img.shields.io/badge/OWASP-Aligned%20Design-blue.svg" alt="OWASP Aligned">
 </p>
 
@@ -109,9 +109,9 @@ To maintain complete security engineering transparency, `kd-screen-guard` define
 
 ---
 
-## 🧪 Automated Testing (17 Passed Test Cases)
+## 🧪 Automated Testing (20 Passed Test Cases)
 
-`kd-screen-guard` maintains a 100% passing test suite across 5 dedicated test categories using Vitest and `happy-dom`:
+`kd-screen-guard` maintains a 100% passing test suite across 6 dedicated test categories using Vitest and `happy-dom`:
 
 ```bash
 npm test
@@ -123,6 +123,7 @@ npm test
 3. **Password Recovery & Reset Flow** (recovery answer verification, answer rejection, `onPasswordReset` server callback sync).
 4. **Lifecycle Events & Subscriptions** (`onLock`, `onUnlock`, `onStateChange` callbacks, dynamic `updateOptions`).
 5. **Hardware & Feature Helpers** (`isBiometricsSupported` safe check).
+6. **Next-Level Security Options** (`enableDomVault` physical detachment, `useShadowDom` closed boundary, `lockOnBlur` tab switch panic lock).
 
 ---
 
@@ -152,6 +153,10 @@ const guard = new ScreenGuard({
     password: 'mySecretPassword123',
     salt: 'app-unique-salt-2026',
     autoLockMinutes: 5,
+    enableDomVault: true,            // Physical DOM detachment during lock state
+    domVaultTarget: '#main-content', // Target element selector to detach
+    useShadowDom: true,              // Render overlay in Closed Shadow DOM
+    lockOnBlur: true,                // Panic lock on browser tab switch
     enableWebAuthn: true,            // Touch ID / Face ID
     enableIntruderSnapshot: true,    // Webcam capture on failed attempts
     enableAudioAlarm: true,          // Built-in Web Audio siren
@@ -232,21 +237,38 @@ const { isLocked, lock } = useScreenGuard({
 | `salt` | `string` | — | Optional salt string for PBKDF2 key derivation. |
 | `iterations` | `number` | `100000` | PBKDF2 iteration count (Rainbow Table protection). |
 | `autoLockMinutes` | `number` | `0` | Inactivity threshold before auto-locking (0 = disabled). |
+| `lockOnBlur` | `boolean` | `false` | Trigger instant lock when browser window/tab loses focus (Panic Lock). |
+| `enableDomVault` | `boolean` | `false` | Enable physical detachment of target DOM content while locked to eliminate DevTools inspection. |
+| `domVaultTarget` | `string \| HTMLElement` | `'main'` | Target selector or HTMLElement to physically detach when DOM Vault is enabled. |
+| `useShadowDom` | `boolean` | `false` | Render lock overlay inside a Closed Shadow DOM boundary to isolate UI styles. |
 | `enableWebAuthn` | `boolean` | `false` | Enable Touch ID / Face ID / Windows Hello biometric unlock. |
+| `webAuthnCredentialId` | `string` | — | Optional pre-registered WebAuthn Credential ID. |
 | `enableIntruderSnapshot` | `boolean` | `false` | Capture webcam photo snapshot on failed attempts or tampering. |
 | `lockOnStartup` | `boolean` | `false` | Instantly lock screen upon app launch. |
 | `persistLockState` | `'session' \| 'local'` | `'session'` | Lock persistence mode ('local' survives browser closure/PC restart). |
 | `antiTamper` | `boolean` | `true` | Enables self-healing MutationObserver DOM protection. |
 | `enableAudioAlarm` | `boolean` | `false` | Enable built-in Web Audio API synthesized hardware siren. |
 | `alarmSoundUrl` | `string` | — | Custom MP3 sound file URL for alarm (overrides built-in siren). |
+| `enableSpeechAlarm` | `boolean` | `false` | Enable Text-to-Speech alarm message playback. |
 | `speechMessage` | `string` | `'Security Alert'` | Text message for Text-to-Speech alarm. |
 | `securityQuestion` | `string` | — | Recovery question for password reset flow. |
 | `securityAnswerHash` | `string` | — | Pre-hashed recovery answer. |
+| `title` | `string` | `'Screen Guard'` | Title text displayed on lock panel overlay. |
+| `subtitle` | `string` | — | Subtitle/instructions displayed on lock panel. |
+| `customCssClass` | `string` | — | Custom CSS class injected into overlay container for full UI styling. |
 | `maxFailedAttempts` | `number` | `5` | Failed attempts threshold before temporary lockout. |
 | `enableLockout` | `boolean` | `true` | Enable or disable consecutive failed attempt lockout system entirely. |
 | `enableExponentialLockout` | `boolean` | `true` | Enable progressive exponential backoff lockout duration (30s -> 1m -> 5m -> 15m -> 1h). |
 | `lockoutDurationSeconds` | `number` | `30` | Base duration of temporary lockout in seconds. |
 | `channelName` | `string` | `'default'` | Custom BroadcastChannel name for multi-instance origin isolation. |
+| `onLock` | `() => void` | — | Fired when screen is locked. |
+| `onUnlock` | `() => void` | — | Fired when screen is unlocked. |
+| `onStateChange` | `(state: kd_LockState) => void` | — | Fired on lock/unlock state transitions with metadata. |
+| `onPasswordReset` | `(newHash: string) => void` | — | Async callback when password is reset in recovery view (for backend sync). |
+| `onTamperDetected` | `(details: kd_TamperDetails) => void` | — | Fired when DOM tampering attempt is detected and healed. |
+| `onSecurityAlert` | `(details: kd_SecurityAlertDetails) => void` | — | Fired when security alert condition is met with structured details. |
+| `onIntruderCaptured` | `(dataUrl: string, details) => void` | — | Fired when webcam photo snapshot is captured. |
+| `onWebAuthnRegister` | `(credentialId: string) => void` | — | Fired when WebAuthn biometric credential is registered. |
 
 ---
 

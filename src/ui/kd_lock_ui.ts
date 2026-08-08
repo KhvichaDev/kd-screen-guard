@@ -37,6 +37,8 @@ export class kd_LockUI {
     private kd_visibilitySecurityHandler: (() => void) | null = null;
     private kd_isSubmitting: boolean = false;
     private kd_activeViewId: string = 'kd-view-password';
+    private kd_shadowRoot: ShadowRoot | null = null;
+    private kd_shadowHost: HTMLElement | null = null;
 
     constructor(
         options: kd_ScreenGuardOptions,
@@ -56,6 +58,20 @@ export class kd_LockUI {
 
     public get kd_currentActiveViewId(): string {
         return this.kd_activeViewId;
+    }
+
+    private kd_getOverlayContainer(): HTMLElement | null {
+        if (this.kd_shadowRoot) {
+            return this.kd_shadowRoot.querySelector('#kd-lock-screen') as HTMLElement | null;
+        }
+        return document.getElementById('kd-lock-screen');
+    }
+
+    private kd_getScopedElement<T extends HTMLElement>(id: string): T | null {
+        if (this.kd_shadowRoot) {
+            return this.kd_shadowRoot.querySelector(`#${id}`) as T | null;
+        }
+        return document.getElementById(id) as T | null;
     }
 
     public kd_renderOverlay(preserveViewId?: string): void {
@@ -143,7 +159,22 @@ export class kd_LockUI {
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', overlayHTML);
+        if (this.kd_options.useShadowDom) {
+            this.kd_shadowHost = document.createElement('div');
+            this.kd_shadowHost.id = 'kd-lock-screen-host';
+            this.kd_shadowHost.style.position = 'fixed';
+            this.kd_shadowHost.style.top = '0';
+            this.kd_shadowHost.style.left = '0';
+            this.kd_shadowHost.style.width = '100%';
+            this.kd_shadowHost.style.height = '100%';
+            this.kd_shadowHost.style.zIndex = '9999999';
+
+            this.kd_shadowRoot = this.kd_shadowHost.attachShadow({ mode: 'closed' });
+            this.kd_shadowRoot.innerHTML = overlayHTML;
+            document.body.appendChild(this.kd_shadowHost);
+        } else {
+            document.body.insertAdjacentHTML('beforeend', overlayHTML);
+        }
         document.body.classList.add('kd-body-locked');
 
         this.kd_setAriaHiddenSiblings(true);
@@ -157,6 +188,11 @@ export class kd_LockUI {
         if (typeof document === 'undefined') return;
 
         this.kd_setAriaHiddenSiblings(false);
+        if (this.kd_shadowHost) {
+            this.kd_shadowHost.remove();
+            this.kd_shadowHost = null;
+            this.kd_shadowRoot = null;
+        }
         const existing = document.getElementById('kd-lock-screen');
         if (existing) existing.remove();
 
@@ -251,10 +287,10 @@ export class kd_LockUI {
     public kd_showError(msgOrElementId: string, message?: string): void {
         if (typeof document === 'undefined') return;
         if (message !== undefined) {
-            const el = document.getElementById(msgOrElementId);
+            const el = this.kd_getScopedElement(msgOrElementId);
             if (el) el.textContent = message;
         } else {
-            const el = document.getElementById('kd-password-error') || document.getElementById('kd-recovery-error') || document.getElementById('kd-reset-error');
+            const el = this.kd_getScopedElement('kd-password-error') || this.kd_getScopedElement('kd-recovery-error') || this.kd_getScopedElement('kd-reset-error');
             if (el) el.textContent = msgOrElementId;
         }
     }
@@ -265,8 +301,8 @@ export class kd_LockUI {
 
     public kd_showLockoutError(secondsRemaining: number): void {
         this.kd_showError(`Too many failed attempts. Locked out for ${secondsRemaining}s.`);
-        const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
-        const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
+        const unlockBtn = this.kd_getScopedElement<HTMLButtonElement>('kd-unlock-btn');
+        const passInput = this.kd_getScopedElement<HTMLInputElement>('kd-lock-password-input');
 
         if (unlockBtn) {
             unlockBtn.disabled = true;
@@ -277,8 +313,8 @@ export class kd_LockUI {
 
     public kd_clearLockoutError(): void {
         this.kd_showError('');
-        const unlockBtn = document.getElementById('kd-unlock-btn') as HTMLButtonElement;
-        const passInput = document.getElementById('kd-lock-password-input') as HTMLInputElement;
+        const unlockBtn = this.kd_getScopedElement<HTMLButtonElement>('kd-unlock-btn');
+        const passInput = this.kd_getScopedElement<HTMLInputElement>('kd-lock-password-input');
 
         if (unlockBtn) {
             unlockBtn.disabled = false;
@@ -313,7 +349,7 @@ export class kd_LockUI {
 
         this.kd_visibilitySecurityHandler = () => {
             if (document.visibilityState === 'hidden') {
-                const overlay = document.getElementById('kd-lock-screen');
+                const overlay = this.kd_getOverlayContainer();
                 if (overlay) {
                     overlay.querySelectorAll('input').forEach((input) => {
                         (input as HTMLInputElement).value = '';
@@ -326,7 +362,7 @@ export class kd_LockUI {
     }
 
     private kd_setupTouchMovePrevention(): void {
-        const overlay = document.getElementById('kd-lock-screen');
+        const overlay = this.kd_getOverlayContainer();
         if (!overlay) return;
 
         this.kd_touchMoveHandler = (evt: TouchEvent) => {
@@ -348,7 +384,7 @@ export class kd_LockUI {
         }
 
         this.kd_focusTrapHandler = (evt: KeyboardEvent) => {
-            const overlay = document.getElementById('kd-lock-screen');
+            const overlay = this.kd_getOverlayContainer();
             if (!overlay) return;
 
             if (evt.key === 'Tab') {
@@ -394,7 +430,7 @@ export class kd_LockUI {
     }
 
     private kd_bindEvents(): void {
-        const lockScreen = document.getElementById('kd-lock-screen');
+        const lockScreen = this.kd_getOverlayContainer();
         if (!lockScreen) return;
 
         const lockPanel = lockScreen.querySelector('.kd-lock-panel');
@@ -561,7 +597,7 @@ export class kd_LockUI {
     }
 
     private kd_switchView(viewId: string): void {
-        const overlay = document.getElementById('kd-lock-screen');
+        const overlay = this.kd_getOverlayContainer();
         if (!overlay) return;
 
         this.kd_activeViewId = viewId;

@@ -6,11 +6,13 @@
 import { kd_ScreenGuardOptions } from './types';
 import { kd_LockEngine } from './core/kd_lock_engine';
 import { kd_sha256, kd_pbkdf2 } from './core/kd_crypto';
+import { kd_workerCrypto } from './core/kd_worker_crypto';
 import { kd_WebAuthnManager } from './guard/kd_webauthn';
 
 export * from './types';
 export { kd_sha256, kd_pbkdf2 } from './core/kd_crypto';
 export { kd_LockEngine } from './core/kd_lock_engine';
+export { kd_DomVault } from './core/kd_dom_vault';
 
 export class ScreenGuard {
     private kd_engine: kd_LockEngine;
@@ -65,22 +67,22 @@ export class ScreenGuard {
 
     public static async hashPassword(password: string, salt?: string, iterations: number = 100000): Promise<string> {
         if (salt) {
-            return await kd_pbkdf2(password, salt, iterations);
+            return await kd_workerCrypto.kd_pbkdf2(password, salt, iterations);
         }
-        return await kd_sha256(password);
+        return await kd_workerCrypto.kd_sha256(password);
     }
 
     public static async pbkdf2(password: string, salt: string, iterations: number = 100000): Promise<string> {
-        return await kd_pbkdf2(password, salt, iterations);
+        return await kd_workerCrypto.kd_pbkdf2(password, salt, iterations);
     }
 
     public static async hashRecoveryAnswer(answer: string, salt?: string, iterations: number = 100000): Promise<string> {
         if (!answer || !answer.trim()) return '';
         const normalized = answer.toLowerCase().trim();
         if (salt) {
-            return await kd_pbkdf2(normalized, salt, iterations);
+            return await kd_workerCrypto.kd_pbkdf2(normalized, salt, iterations);
         }
-        return await kd_sha256(normalized);
+        return await kd_workerCrypto.kd_sha256(normalized);
     }
 }
 

@@ -1,6 +1,6 @@
 import {
   ScreenGuard
-} from "../chunk-FVBN755L.mjs";
+} from "../chunk-LOX4MGZB.mjs";
 
 // src/react/index.ts
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -37,7 +37,20 @@ function useScreenGuard(options = {}) {
     if (guardRef.current) {
       guardRef.current.updateOptions(options);
     }
-  }, [options.autoLockMinutes, options.enableWebAuthn, options.enableIntruderSnapshot, options.enableAudioAlarm, options.enableSpeechAlarm, options.speechMessage, options.lockoutDurationSeconds, options.maxFailedAttempts]);
+  }, [
+    options.autoLockMinutes,
+    options.lockOnBlur,
+    options.enableDomVault,
+    options.domVaultTarget,
+    options.useShadowDom,
+    options.enableWebAuthn,
+    options.enableIntruderSnapshot,
+    options.enableAudioAlarm,
+    options.enableSpeechAlarm,
+    options.speechMessage,
+    options.lockoutDurationSeconds,
+    options.maxFailedAttempts
+  ]);
   const lock = useCallback(() => {
     guardRef.current?.lock();
   }, []);

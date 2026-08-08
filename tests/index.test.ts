@@ -8,6 +8,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ScreenGuard, { kd_sha256, kd_pbkdf2, kd_LockEngine } from '../src/index';
 
+beforeEach(() => {
+    if (typeof localStorage !== 'undefined') localStorage.clear();
+    if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+});
+
 describe('1. Cryptographic & Key Derivation Engine', () => {
     it('should compute deterministic SHA-256 hashes', async () => {
         const hash1 = await kd_sha256('helloWorld');
@@ -202,5 +207,70 @@ describe('5. Hardware & Feature Support Helpers', () => {
     it('should check biometrics support helper safely', async () => {
         const supported = await ScreenGuard.isBiometricsSupported();
         expect(typeof supported).toBe('boolean');
+    });
+});
+
+describe('6. Next-Level Security Options (DOM Vault, Shadow DOM, Lock on Blur)', () => {
+    it('should physically detach target DOM element when enableDomVault is true', async () => {
+        const mainEl = document.createElement('main');
+        mainEl.id = 'main-content';
+        mainEl.textContent = 'Confidential Gemini Chat Content';
+        document.body.appendChild(mainEl);
+
+        const guard = new ScreenGuard({
+            password: 'secretPassword',
+            enableDomVault: true,
+            domVaultTarget: '#main-content',
+            antiTamper: false
+        });
+
+        await guard.init();
+        expect(document.querySelector('#main-content')).not.toBeNull();
+
+        guard.lock();
+        expect(guard.isLocked).toBe(true);
+        expect(document.querySelector('#main-content')).toBeNull();
+
+        guard.unlock();
+        expect(guard.isLocked).toBe(false);
+        expect(document.querySelector('#main-content')).not.toBeNull();
+        expect(document.querySelector('#main-content')?.textContent).toBe('Confidential Gemini Chat Content');
+
+        mainEl.remove();
+        guard.destroy();
+    });
+
+    it('should render overlay inside Closed Shadow DOM host when useShadowDom is true', async () => {
+        const guard = new ScreenGuard({
+            password: 'secretPassword',
+            useShadowDom: true,
+            antiTamper: false
+        });
+
+        await guard.init();
+        guard.lock();
+
+        const hostEl = document.getElementById('kd-lock-screen-host');
+        expect(hostEl).not.toBeNull();
+
+        guard.unlock();
+        expect(document.getElementById('kd-lock-screen-host')).toBeNull();
+        guard.destroy();
+    });
+
+    it('should trigger lock on window blur when lockOnBlur is true', async () => {
+        const guard = new ScreenGuard({
+            password: 'secretPassword',
+            lockOnBlur: true,
+            antiTamper: false
+        });
+
+        await guard.init();
+        expect(guard.isLocked).toBe(false);
+
+        window.dispatchEvent(new Event('blur'));
+        expect(guard.isLocked).toBe(true);
+
+        guard.destroy();
     });
 });

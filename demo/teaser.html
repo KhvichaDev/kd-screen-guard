@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KD Screen Guard | Premium Teaser Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #030712;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Video Frame Stage (16:9 Aspect Ratio: 960x540) */
+    .teaser-stage {
+      position: relative;
+      width: 960px;
+      height: 540px;
+      background: radial-gradient(circle at center, #0b1329 0%, #020617 100%);
+      border-radius: 20px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8), 0 0 50px rgba(14, 165, 233, 0.15);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Background Grid & Cyber Glow */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: radial-gradient(ellipse at center, black 50%, transparent 85%);
+    }
+
+    /* Scene Layers */
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: scale(0.94);
+    }
+    .scene.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    /* Scene 1: DevTools Tamper Attempt */
+    .scene-1 .warning-badge {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      animation: alertPulse 1s infinite alternate;
+    }
+    .scene-1 h1 {
+      font-size: 36px;
+      font-weight: 900;
+      text-align: center;
+      max-width: 800px;
+      line-height: 1.25;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 24px;
+    }
+    .devtools-mock {
+      width: 580px;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #94a3b8;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+    }
+    .devtools-line { margin-bottom: 6px; }
+    .tag { color: #f43f5e; }
+    .attr { color: #38bdf8; }
+    .val { color: #e2e8f0; }
+
+    /* Scene 2: Anti-Tamper & WebRTC Intruder Camera */
+    .scene-2 .badge-glow {
+      background: rgba(14, 165, 233, 0.15);
+      border: 1px solid #38bdf8;
+      color: #38bdf8;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+    }
+    .scene-2 h2 {
+      font-size: 40px;
+      font-weight: 900;
+      color: #ffffff;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .feature-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 680px;
+    }
+    .feature-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .feature-card svg { margin-bottom: 12px; }
+    .feature-card h3 { font-size: 18px; font-weight: 800; color: #38bdf8; margin-bottom: 6px; }
+    .feature-card p { font-size: 13px; color: #94a3b8; }
+
+    /* Scene 3: Hardware Biometrics & PBKDF2 Crypto */
+    .scene-3 h2 {
+      font-size: 40px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 24px;
+    }
+    .tech-stack-row {
+      display: flex;
+      gap: 16px;
+    }
+    .tech-box {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 14px;
+      padding: 20px 24px;
+      text-align: center;
+      width: 220px;
+    }
+    .tech-box .icon { font-size: 32px; margin-bottom: 10px; }
+    .tech-box h4 { font-size: 16px; font-weight: 800; color: #10b981; margin-bottom: 4px; }
+    .tech-box span { font-size: 12px; color: #a7f3d0; }
+
+    /* Scene 4: Multi-Tab Broadcast & Audio Siren */
+    .scene-4 h2 {
+      font-size: 38px;
+      font-weight: 900;
+      color: #818cf8;
+      margin-bottom: 24px;
+    }
+    .row-cards {
+      display: flex;
+      gap: 20px;
+    }
+    .card-purple {
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      border-radius: 14px;
+      padding: 20px 28px;
+      text-align: center;
+      width: 320px;
+    }
+    .card-purple h4 { font-size: 18px; color: #a5b4fc; margin-bottom: 6px; }
+    .card-purple p { font-size: 13px; color: #c7d2fe; }
+
+    /* Scene 5: Grand Final Branding */
+    .scene-5 .final-title {
+      font-size: 58px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+      text-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+    }
+    .scene-5 .crafted-by {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 24px;
+      border-radius: 30px;
+    }
+    .scene-5 .sub-desc {
+      font-size: 18px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+    .install-pill {
+      background: #020617;
+      border: 2px solid #38bdf8;
+      border-radius: 14px;
+      padding: 16px 36px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 800;
+      color: #38bdf8;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Controls Bar */
+    .controls {
+      margin-top: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .btn-play {
+      background: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 14px 32px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+      transition: all 0.2s ease;
+    }
+    .btn-play:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(79, 70, 229, 0.5);
+    }
+    .tip-text {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    @keyframes alertPulse {
+      from { opacity: 0.6; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 16:9 Showcase Stage (960x540) -->
+  <div class="teaser-stage" id="stage">
+    <div class="grid-bg"></div>
+
+    <!-- Scene 1: DevTools Attack Attempt (0s - 2.5s) -->
+    <div class="scene scene-1 active" id="scene1">
+      <div class="warning-badge">⚠️ ATTACK THREAT SIMULATION</div>
+      <h1>WHAT IF A HACKER DELETES YOUR APP LOCK IN DEVTOOLS?</h1>
+      <div class="devtools-mock">
+        <div class="devtools-line"><span class="tag">&lt;div</span> <span class="attr">id=</span><span class="val">"kd-lock-screen"</span> <span class="attr">style=</span><span class="val">"z-index:9999"</span><span class="tag">&gt;</span></div>
+        <div class="devtools-line" style="text-decoration: line-through; color: #ef4444; background: rgba(239,68,68,0.12); padding: 4px 8px; border-radius: 4px;">&lt;!-- Hacker clicks 'Inspect -> Delete element' --&gt;</div>
+      </div>
+    </div>
+
+    <!-- Scene 2: Self-Healing & WebRTC Intruder Snapshot (2.5s - 5s) -->
+    <div class="scene scene-2" id="scene2">
+      <div class="badge-glow">🛡️ ACTIVE SECURITY DEFENSE</div>
+      <h2>SELF-HEALING &amp; WEBRTC SNAPSHOT</h2>
+      <div class="feature-grid-2">
+        <div class="feature-card">
+          <svg width="40" height="40" fill="none" stroke="#38bdf8" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <h3>Self-Healing Anti-Tamper</h3>
+          <p>Instant DOM restoration in &lt;1ms if tampered via DevTools.</p>
+        </div>
+        <div class="feature-card">
+          <svg width="40" height="40" fill="none" stroke="#38bdf8" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <h3>Intruder Webcam Snapshot</h3>
+          <p>WebRTC photo capture of unauthorized access attempts.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3: WebAuthn Biometrics & PBKDF2 Web Worker Crypto (5s - 7.5s) -->
+    <div class="scene scene-3" id="scene3">
+      <h2>HARDWARE BIOMETRICS &amp; CRYPTO</h2>
+      <div class="tech-stack-row">
+        <div class="tech-box">
+          <div class="icon">🔑</div>
+          <h4>WebAuthn</h4>
+          <span>Touch ID / Face ID / YubiKey</span>
+        </div>
+        <div class="tech-box">
+          <div class="icon">⚡</div>
+          <h4>Web Worker PBKDF2</h4>
+          <span>100,000 Salted Iterations</span>
+        </div>
+        <div class="tech-box">
+          <div class="icon">⚛️</div>
+          <h4>React &amp; Vue 3</h4>
+          <span>Native `useScreenGuard` Hooks</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 4: Multi-Tab Broadcast & Audio Siren (7.5s - 9.5s) -->
+    <div class="scene scene-4" id="scene4">
+      <h2>MULTI-TAB SYNC &amp; HARDWARE ALARM</h2>
+      <div class="row-cards">
+        <div class="card-purple">
+          <h4>📡 BroadcastChannel Sync</h4>
+          <p>Cross-tab state synchronization across all browser windows.</p>
+        </div>
+        <div class="card-purple">
+          <h4>🔊 Web Audio Hardware Siren</h4>
+          <p>Dynamic hardware siren &amp; autoplay audio trap.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 5: Grand Final Branding (9.5s - 12.5s) -->
+    <div class="scene scene-5" id="scene5">
+      <h1 class="final-title">KD Screen Guard</h1>
+      <div class="crafted-by">Crafted by KhvichaDev</div>
+      <p class="sub-desc">Tamper-Proof Lock Screen Library for Modern Web Apps</p>
+      <div class="install-pill">
+        npm i kd-screen-guard
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Play Controls -->
+  <div class="controls">
+    <button class="btn-play" onclick="kd_playTeaser()">▶️ START 12s TEASER SHOWCASE</button>
+    <span class="tip-text">💡 Record with <b>Win + Alt + R</b> (Windows Game Bar) for LinkedIn!</span>
+  </div>
+
+  <script>
+    let kd_audioCtx = null;
+
+    function kd_initAudio() {
+      if (!kd_audioCtx) {
+        kd_audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function kd_playSynthTone(freq, duration, type = 'sine') {
+      if (!kd_audioCtx) return;
+      try {
+        const osc = kd_audioCtx.createOscillator();
+        const gain = kd_audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, kd_audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.2, kd_audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, kd_audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(kd_audioCtx.destination);
+        osc.start();
+        osc.stop(kd_audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function kd_playTeaser() {
+      kd_initAudio();
+      
+      const s1 = document.getElementById('scene1');
+      const s2 = document.getElementById('scene2');
+      const s3 = document.getElementById('scene3');
+      const s4 = document.getElementById('scene4');
+      const s5 = document.getElementById('scene5');
+
+      // Reset all scenes
+      [s1, s2, s3, s4, s5].forEach(s => s.classList.remove('active'));
+
+      // Scene 1: Attack (0s - 2.5s)
+      s1.classList.add('active');
+      kd_playSynthTone(140, 0.4, 'sawtooth');
+
+      // Scene 2: Anti-Tamper & WebRTC Snapshot (2.5s - 5s)
+      setTimeout(() => {
+        s1.classList.remove('active');
+        s2.classList.add('active');
+        kd_playSynthTone(440, 0.25, 'square');
+        setTimeout(() => kd_playSynthTone(880, 0.3, 'sine'), 200);
+      }, 2500);
+
+      // Scene 3: WebAuthn & PBKDF2 Worker (5s - 7.5s)
+      setTimeout(() => {
+        s2.classList.remove('active');
+        s3.classList.add('active');
+        kd_playSynthTone(523.25, 0.2, 'sine'); // C5
+        setTimeout(() => kd_playSynthTone(659.25, 0.2, 'sine'), 150); // E5
+        setTimeout(() => kd_playSynthTone(783.99, 0.3, 'sine'), 300); // G5
+      }, 5000);
+
+      // Scene 4: Multi-Tab & Audio Siren (7.5s - 9.5s)
+      setTimeout(() => {
+        s3.classList.remove('active');
+        s4.classList.add('active');
+        kd_playSynthTone(350, 0.2, 'square');
+        setTimeout(() => kd_playSynthTone(700, 0.3, 'square'), 200);
+      }, 7500);
+
+      // Scene 5: Grand Final Branding KD Screen Guard - Crafted by KhvichaDev (9.5s - 12.5s)
+      setTimeout(() => {
+        s4.classList.remove('active');
+        s5.classList.add('active');
+        kd_playSynthTone(523.25, 0.3, 'sine'); // C5
+        setTimeout(() => kd_playSynthTone(659.25, 0.3, 'sine'), 150); // E5
+        setTimeout(() => kd_playSynthTone(1046.50, 0.6, 'sine'), 300); // C6 chord!
+      }, 9500);
+    }
+  </script>
+</body>
+</html>

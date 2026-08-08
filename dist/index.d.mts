@@ -57,6 +57,22 @@ interface kd_ScreenGuardOptions {
      */
     autoLockMinutes?: number;
     /**
+     * Lock screen immediately when the browser tab or window loses focus.
+     */
+    lockOnBlur?: boolean;
+    /**
+     * Enable physical detachment of target DOM content while locked to prevent devtools inspection.
+     */
+    enableDomVault?: boolean;
+    /**
+     * Target selector string or HTMLElement to physically detach when DOM Vault is enabled. Defaults to 'main'.
+     */
+    domVaultTarget?: string | HTMLElement;
+    /**
+     * Render the lock overlay inside a Closed Shadow DOM boundary to isolate UI styles.
+     */
+    useShadowDom?: boolean;
+    /**
      * Enable MutationObserver self-healing protection to prevent DOM tampering.
      */
     antiTamper?: boolean;
@@ -191,6 +207,7 @@ declare class kd_LockEngine {
     private kd_lockoutTimerId;
     private kd_lastAlertTimestamp;
     private kd_autoLockTracker;
+    private kd_domVault;
     private kd_tamperGuard;
     private kd_alarmSystem;
     private kd_ui;
@@ -226,6 +243,21 @@ declare class kd_LockEngine {
     private kd_restoreSessionLockState;
 }
 
+/**
+ * DOM Vault Manager for physically detaching sensitive application content during locked state.
+ * Prevents DevTools inspection and DOM querying when screen guard is active.
+ */
+declare class kd_DomVault {
+    private kd_target;
+    private kd_detachedElement;
+    private kd_placeholderNode;
+    constructor(target?: string | HTMLElement);
+    kd_detach(): boolean;
+    kd_restore(): boolean;
+    get kd_isDetached(): boolean;
+    private kd_findTargetElement;
+}
+
 declare class ScreenGuard {
     private kd_engine;
     constructor(options?: kd_ScreenGuardOptions);
@@ -245,4 +277,4 @@ declare class ScreenGuard {
     static hashRecoveryAnswer(answer: string, salt?: string, iterations?: number): Promise<string>;
 }
 
-export { ScreenGuard, ScreenGuard as default, kd_LockEngine, type kd_LockState, type kd_ScreenGuardOptions, type kd_SecurityAlertDetails, type kd_TamperDetails, kd_pbkdf2, kd_sha256 };
+export { ScreenGuard, ScreenGuard as default, kd_DomVault, kd_LockEngine, type kd_LockState, type kd_ScreenGuardOptions, type kd_SecurityAlertDetails, type kd_TamperDetails, kd_pbkdf2, kd_sha256 };

@@ -59,6 +59,22 @@ export interface kd_ScreenGuardOptions {
      */
     autoLockMinutes?: number;
     /**
+     * Lock screen immediately when the browser tab or window loses focus.
+     */
+    lockOnBlur?: boolean;
+    /**
+     * Enable physical detachment of target DOM content while locked to prevent devtools inspection.
+     */
+    enableDomVault?: boolean;
+    /**
+     * Target selector string or HTMLElement to physically detach when DOM Vault is enabled. Defaults to 'main'.
+     */
+    domVaultTarget?: string | HTMLElement;
+    /**
+     * Render the lock overlay inside a Closed Shadow DOM boundary to isolate UI styles.
+     */
+    useShadowDom?: boolean;
+    /**
      * Enable MutationObserver self-healing protection to prevent DOM tampering.
      */
     antiTamper?: boolean;

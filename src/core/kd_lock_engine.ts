@@ -7,6 +7,7 @@ import { kd_ScreenGuardOptions, kd_LockState, kd_TamperDetails, kd_SecurityAlert
 import { kd_sha256, kd_pbkdf2 } from './kd_crypto';
 import { kd_workerCrypto } from './kd_worker_crypto';
 import { kd_AutoLockTracker } from './kd_auto_lock';
+import { kd_DomVault } from './kd_dom_vault';
 import { kd_TamperGuard } from '../guard/kd_tamper_guard';
 import { kd_AlarmSystem } from '../guard/kd_alarm_system';
 import { kd_IntruderCamera } from '../guard/kd_intruder_camera';
@@ -31,6 +32,7 @@ export class kd_LockEngine {
     private kd_lockoutTimerId: ReturnType<typeof setInterval> | null = null;
     private kd_lastAlertTimestamp: number = 0;
     private kd_autoLockTracker: kd_AutoLockTracker | null = null;
+    private kd_domVault: kd_DomVault | null = null;
     private kd_tamperGuard: kd_TamperGuard | null = null;
     private kd_alarmSystem: kd_AlarmSystem | null = null;
     private kd_ui: kd_LockUI | null = null;
@@ -58,6 +60,14 @@ export class kd_LockEngine {
         if (this.kd_alarmSystem) {
             this.kd_alarmSystem.kd_stopAlarm();
             this.kd_alarmSystem = null;
+        }
+        if (this.kd_domVault) {
+            this.kd_domVault.kd_restore();
+            this.kd_domVault = null;
+        }
+
+        if (this.kd_options.enableDomVault) {
+            this.kd_domVault = new kd_DomVault(this.kd_options.domVaultTarget);
         }
 
         if (this.kd_options.passwordHash) {
@@ -99,10 +109,11 @@ export class kd_LockEngine {
                 this.kd_passwordHash = newHash;
                 this.kd_options.passwordHash = newHash;
             },
-            this.kd_options.channelName
+            this.kd_options.channelName,
+            this.kd_options.lockOnBlur ?? false
         );
 
-        if (this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0) {
+        if ((this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0) || this.kd_options.lockOnBlur) {
             this.kd_autoLockTracker.kd_start();
         }
 
@@ -128,6 +139,10 @@ export class kd_LockEngine {
         if (this.kd_isLocked) return;
         this.kd_isLocked = true;
         this.kd_lastIntruderSnapshot = null;
+
+        if (this.kd_domVault) {
+            this.kd_domVault.kd_detach();
+        }
 
         if (this.kd_autoLockTracker) {
             this.kd_autoLockTracker.kd_setLockedState(true);
@@ -160,6 +175,10 @@ export class kd_LockEngine {
         this.kd_failedAttemptsCount = 0;
         this.kd_lockoutCount = 0;
         this.kd_lockoutUntilTimestamp = 0;
+
+        if (this.kd_domVault) {
+            this.kd_domVault.kd_restore();
+        }
 
         if (this.kd_lockoutTimerId) {
             clearInterval(this.kd_lockoutTimerId);
@@ -215,8 +234,22 @@ export class kd_LockEngine {
             this.kd_passwordHash = newOptions.passwordHash;
         }
 
-        if (newOptions.autoLockMinutes !== undefined && this.kd_autoLockTracker) {
-            this.kd_autoLockTracker.kd_updateConfig(newOptions.autoLockMinutes);
+        if (this.kd_autoLockTracker) {
+            this.kd_autoLockTracker.kd_updateConfig(
+                this.kd_options.autoLockMinutes || 0,
+                this.kd_options.lockOnBlur
+            );
+        }
+
+        if (newOptions.enableDomVault !== undefined || newOptions.domVaultTarget !== undefined) {
+            if (this.kd_options.enableDomVault) {
+                if (!this.kd_domVault) {
+                    this.kd_domVault = new kd_DomVault(this.kd_options.domVaultTarget);
+                }
+            } else if (this.kd_domVault) {
+                this.kd_domVault.kd_restore();
+                this.kd_domVault = null;
+            }
         }
 
         if (this.kd_alarmSystem) {

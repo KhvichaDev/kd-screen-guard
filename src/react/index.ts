@@ -55,7 +55,20 @@ export function useScreenGuard(options: kd_ScreenGuardOptions = {}): useScreenGu
         if (guardRef.current) {
             guardRef.current.updateOptions(options);
         }
-    }, [options.autoLockMinutes, options.enableWebAuthn, options.enableIntruderSnapshot, options.enableAudioAlarm, options.enableSpeechAlarm, options.speechMessage, options.lockoutDurationSeconds, options.maxFailedAttempts]);
+    }, [
+        options.autoLockMinutes,
+        options.lockOnBlur,
+        options.enableDomVault,
+        options.domVaultTarget,
+        options.useShadowDom,
+        options.enableWebAuthn,
+        options.enableIntruderSnapshot,
+        options.enableAudioAlarm,
+        options.enableSpeechAlarm,
+        options.speechMessage,
+        options.lockoutDurationSeconds,
+        options.maxFailedAttempts
+    ]);
 
     const lock = useCallback(() => {
         guardRef.current?.lock();

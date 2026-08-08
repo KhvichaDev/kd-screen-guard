@@ -20,22 +20,33 @@ export class kd_AutoLockTracker {
     private kd_isLocked: boolean = false;
     private kd_storageKey: string;
 
+    private kd_lockOnBlur: boolean = false;
+    private kd_blurHandler: (() => void) | null = null;
+
     constructor(
         autoLockMinutes: number,
         onTimeout: () => void,
         onUnlockReceived?: () => void,
         onPasswordResetReceived?: (newHash: string) => void,
-        channelName: string = DEFAULT_BROADCAST_CHANNEL
+        channelName: string = DEFAULT_BROADCAST_CHANNEL,
+        lockOnBlur: boolean = false
     ) {
         this.kd_autoLockMinutes = autoLockMinutes;
         this.kd_onTimeout = onTimeout;
         this.kd_onUnlockReceived = onUnlockReceived;
         this.kd_onPasswordResetReceived = onPasswordResetReceived;
+        this.kd_lockOnBlur = lockOnBlur;
         this.kd_storageKey = `${DEFAULT_STORAGE_KEY_PREFIX}_${channelName || DEFAULT_BROADCAST_CHANNEL}`;
         this.kd_boundHandler = () => this.kd_updateActivityTimestamp();
         this.kd_visibilityHandler = () => {
             if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !this.kd_isLocked) {
                 this.kd_checkTimeout();
+            }
+        };
+        this.kd_blurHandler = () => {
+            if (this.kd_lockOnBlur && !this.kd_isLocked) {
+                this.kd_notifyLockEvent();
+                this.kd_onTimeout();
             }
         };
 
@@ -64,9 +75,10 @@ export class kd_AutoLockTracker {
     }
 
     public kd_start(): void {
-        if (this.kd_autoLockMinutes <= 0) return;
         this.kd_setupEventListeners();
         this.kd_resetActivityTimestamp();
+
+        if (this.kd_autoLockMinutes <= 0) return;
 
         if (this.kd_intervalId) clearInterval(this.kd_intervalId);
 
@@ -105,9 +117,12 @@ export class kd_AutoLockTracker {
         }
     }
 
-    public kd_updateConfig(minutes: number): void {
+    public kd_updateConfig(minutes: number, lockOnBlur?: boolean): void {
         this.kd_autoLockMinutes = minutes;
-        if (minutes > 0) {
+        if (lockOnBlur !== undefined) {
+            this.kd_lockOnBlur = lockOnBlur;
+        }
+        if (minutes > 0 || this.kd_lockOnBlur) {
             this.kd_start();
         } else {
             this.kd_stop();
@@ -190,6 +205,10 @@ export class kd_AutoLockTracker {
             document.addEventListener('visibilitychange', this.kd_visibilityHandler);
         }
 
+        if (this.kd_blurHandler) {
+            window.addEventListener('blur', this.kd_blurHandler);
+        }
+
         this.kd_listenersActive = true;
     }
 
@@ -203,6 +222,10 @@ export class kd_AutoLockTracker {
 
         if (typeof document !== 'undefined') {
             document.removeEventListener('visibilitychange', this.kd_visibilityHandler);
+        }
+
+        if (this.kd_blurHandler) {
+            window.removeEventListener('blur', this.kd_blurHandler);
         }
 
         this.kd_listenersActive = false;

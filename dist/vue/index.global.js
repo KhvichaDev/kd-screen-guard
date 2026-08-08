@@ -57558,7 +57558,7 @@ ${codeFrame}` : message);
       if (typeof self !== "undefined" && self.crypto && self.crypto.subtle) {
         try {
           const encoder = new TextEncoder();
-          const buffer = new Uint8Array(encoder.encode(data));
+          const buffer = encoder.encode(data);
           const hashBuffer = await self.crypto.subtle.digest("SHA-256", buffer);
           const hashArray = Array.from(new Uint8Array(hashBuffer));
           return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -57715,8 +57715,7 @@ ${codeFrame}` : message);
       this.kd_worker = null;
       this.kd_callbacks = /* @__PURE__ */ new Map();
       this.kd_msgId = 0;
-      const isTestEnv = typeof process !== "undefined" && (process.env?.NODE_ENV === "test" || process.env?.VITEST === "true") || typeof navigator !== "undefined" && (navigator.userAgent.includes("happy-dom") || navigator.userAgent.includes("jsdom"));
-      if (!isTestEnv && typeof window !== "undefined" && typeof Worker !== "undefined" && typeof Blob !== "undefined") {
+      if (typeof window !== "undefined" && typeof Worker !== "undefined" && typeof Blob !== "undefined") {
         try {
           const code = "(" + kd_workerMain.toString() + ")();";
           const blob = new Blob([code], { type: "application/javascript" });
@@ -57782,21 +57781,30 @@ ${codeFrame}` : message);
   var DEFAULT_STORAGE_KEY_PREFIX = "kd_screen_guard_last_activity";
   var DEFAULT_BROADCAST_CHANNEL = "kd_screen_guard_channel";
   var kd_AutoLockTracker = class {
-    constructor(autoLockMinutes, onTimeout, onUnlockReceived, onPasswordResetReceived, channelName = DEFAULT_BROADCAST_CHANNEL) {
+    constructor(autoLockMinutes, onTimeout, onUnlockReceived, onPasswordResetReceived, channelName = DEFAULT_BROADCAST_CHANNEL, lockOnBlur = false) {
       this.kd_intervalId = null;
       this.kd_listenersActive = false;
       this.kd_channel = null;
       this.kd_memoryTimestamp = Date.now();
       this.kd_isLocked = false;
+      this.kd_lockOnBlur = false;
+      this.kd_blurHandler = null;
       this.kd_autoLockMinutes = autoLockMinutes;
       this.kd_onTimeout = onTimeout;
       this.kd_onUnlockReceived = onUnlockReceived;
       this.kd_onPasswordResetReceived = onPasswordResetReceived;
+      this.kd_lockOnBlur = lockOnBlur;
       this.kd_storageKey = `${DEFAULT_STORAGE_KEY_PREFIX}_${channelName || DEFAULT_BROADCAST_CHANNEL}`;
       this.kd_boundHandler = () => this.kd_updateActivityTimestamp();
       this.kd_visibilityHandler = () => {
         if (typeof document !== "undefined" && document.visibilityState === "visible" && !this.kd_isLocked) {
           this.kd_checkTimeout();
+        }
+      };
+      this.kd_blurHandler = () => {
+        if (this.kd_lockOnBlur && !this.kd_isLocked) {
+          this.kd_notifyLockEvent();
+          this.kd_onTimeout();
         }
       };
       if (typeof BroadcastChannel !== "undefined") {
@@ -57822,9 +57830,9 @@ ${codeFrame}` : message);
       this.kd_isLocked = isLocked;
     }
     kd_start() {
-      if (this.kd_autoLockMinutes <= 0) return;
       this.kd_setupEventListeners();
       this.kd_resetActivityTimestamp();
+      if (this.kd_autoLockMinutes <= 0) return;
       if (this.kd_intervalId) clearInterval(this.kd_intervalId);
       this.kd_intervalId = setInterval(() => {
         if (!this.kd_isLocked) {
@@ -57855,9 +57863,12 @@ ${codeFrame}` : message);
         }
       }
     }
-    kd_updateConfig(minutes) {
+    kd_updateConfig(minutes, lockOnBlur) {
       this.kd_autoLockMinutes = minutes;
-      if (minutes > 0) {
+      if (lockOnBlur !== void 0) {
+        this.kd_lockOnBlur = lockOnBlur;
+      }
+      if (minutes > 0 || this.kd_lockOnBlur) {
         this.kd_start();
       } else {
         this.kd_stop();
@@ -57924,6 +57935,9 @@ ${codeFrame}` : message);
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", this.kd_visibilityHandler);
       }
+      if (this.kd_blurHandler) {
+        window.addEventListener("blur", this.kd_blurHandler);
+      }
       this.kd_listenersActive = true;
     }
     kd_removeEventListeners() {
@@ -57935,6 +57949,9 @@ ${codeFrame}` : message);
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", this.kd_visibilityHandler);
       }
+      if (this.kd_blurHandler) {
+        window.removeEventListener("blur", this.kd_blurHandler);
+      }
       this.kd_listenersActive = false;
     }
     kd_notifyLockEvent() {
@@ -57944,6 +57961,59 @@ ${codeFrame}` : message);
         } catch {
         }
       }
+    }
+  };
+
+  // src/core/kd_dom_vault.ts
+  var kd_DomVault = class {
+    constructor(target) {
+      this.kd_detachedElement = null;
+      this.kd_placeholderNode = null;
+      this.kd_target = target || "main";
+    }
+    kd_detach() {
+      if (typeof document === "undefined") return false;
+      if (this.kd_detachedElement) return true;
+      const element = this.kd_findTargetElement();
+      if (!element || !element.parentNode) return false;
+      const parent = element.parentNode;
+      const placeholder = document.createComment("kd-screen-guard-dom-vault-placeholder");
+      parent.insertBefore(placeholder, element);
+      element.remove();
+      this.kd_detachedElement = element;
+      this.kd_placeholderNode = placeholder;
+      return true;
+    }
+    kd_restore() {
+      if (!this.kd_detachedElement || !this.kd_placeholderNode) return false;
+      if (this.kd_placeholderNode.parentNode) {
+        this.kd_placeholderNode.parentNode.insertBefore(this.kd_detachedElement, this.kd_placeholderNode);
+        this.kd_placeholderNode.remove();
+      } else if (typeof document !== "undefined" && document.body) {
+        document.body.appendChild(this.kd_detachedElement);
+      }
+      this.kd_detachedElement = null;
+      this.kd_placeholderNode = null;
+      return true;
+    }
+    get kd_isDetached() {
+      return this.kd_detachedElement !== null;
+    }
+    kd_findTargetElement() {
+      if (typeof document === "undefined") return null;
+      if (typeof this.kd_target === "string") {
+        const found = document.querySelector(this.kd_target);
+        if (found) return found;
+        const fallbacks = ["main", "#app", "#root", ".app-container"];
+        for (const fallback of fallbacks) {
+          const fbEl = document.querySelector(fallback);
+          if (fbEl && fbEl.id !== "kd-lock-screen" && fbEl.id !== "kd-lock-screen-host") {
+            return fbEl;
+          }
+        }
+        return null;
+      }
+      return this.kd_target;
     }
   };
 
@@ -58509,6 +58579,8 @@ ${codeFrame}` : message);
       this.kd_visibilitySecurityHandler = null;
       this.kd_isSubmitting = false;
       this.kd_activeViewId = "kd-view-password";
+      this.kd_shadowRoot = null;
+      this.kd_shadowHost = null;
       this.kd_options = options;
       this.kd_onUnlockAttempt = onUnlockAttempt;
       this.kd_onRecoveryAttempt = onRecoveryAttempt;
@@ -58518,6 +58590,18 @@ ${codeFrame}` : message);
     }
     get kd_currentActiveViewId() {
       return this.kd_activeViewId;
+    }
+    kd_getOverlayContainer() {
+      if (this.kd_shadowRoot) {
+        return this.kd_shadowRoot.querySelector("#kd-lock-screen");
+      }
+      return document.getElementById("kd-lock-screen");
+    }
+    kd_getScopedElement(id) {
+      if (this.kd_shadowRoot) {
+        return this.kd_shadowRoot.querySelector(`#${id}`);
+      }
+      return document.getElementById(id);
     }
     kd_renderOverlay(preserveViewId) {
       if (typeof document === "undefined") return;
@@ -58595,7 +58679,21 @@ ${codeFrame}` : message);
                 </div>
             </div>
         `;
-      document.body.insertAdjacentHTML("beforeend", overlayHTML);
+      if (this.kd_options.useShadowDom) {
+        this.kd_shadowHost = document.createElement("div");
+        this.kd_shadowHost.id = "kd-lock-screen-host";
+        this.kd_shadowHost.style.position = "fixed";
+        this.kd_shadowHost.style.top = "0";
+        this.kd_shadowHost.style.left = "0";
+        this.kd_shadowHost.style.width = "100%";
+        this.kd_shadowHost.style.height = "100%";
+        this.kd_shadowHost.style.zIndex = "9999999";
+        this.kd_shadowRoot = this.kd_shadowHost.attachShadow({ mode: "closed" });
+        this.kd_shadowRoot.innerHTML = overlayHTML;
+        document.body.appendChild(this.kd_shadowHost);
+      } else {
+        document.body.insertAdjacentHTML("beforeend", overlayHTML);
+      }
       document.body.classList.add("kd-body-locked");
       this.kd_setAriaHiddenSiblings(true);
       this.kd_setupFocusTrap();
@@ -58606,6 +58704,11 @@ ${codeFrame}` : message);
     kd_removeOverlay() {
       if (typeof document === "undefined") return;
       this.kd_setAriaHiddenSiblings(false);
+      if (this.kd_shadowHost) {
+        this.kd_shadowHost.remove();
+        this.kd_shadowHost = null;
+        this.kd_shadowRoot = null;
+      }
       const existing = document.getElementById("kd-lock-screen");
       if (existing) existing.remove();
       document.body.classList.remove("kd-body-locked");
@@ -58684,10 +58787,10 @@ ${codeFrame}` : message);
     kd_showError(msgOrElementId, message) {
       if (typeof document === "undefined") return;
       if (message !== void 0) {
-        const el = document.getElementById(msgOrElementId);
+        const el = this.kd_getScopedElement(msgOrElementId);
         if (el) el.textContent = message;
       } else {
-        const el = document.getElementById("kd-password-error") || document.getElementById("kd-recovery-error") || document.getElementById("kd-reset-error");
+        const el = this.kd_getScopedElement("kd-password-error") || this.kd_getScopedElement("kd-recovery-error") || this.kd_getScopedElement("kd-reset-error");
         if (el) el.textContent = msgOrElementId;
       }
     }
@@ -58696,8 +58799,8 @@ ${codeFrame}` : message);
     }
     kd_showLockoutError(secondsRemaining) {
       this.kd_showError(`Too many failed attempts. Locked out for ${secondsRemaining}s.`);
-      const unlockBtn = document.getElementById("kd-unlock-btn");
-      const passInput = document.getElementById("kd-lock-password-input");
+      const unlockBtn = this.kd_getScopedElement("kd-unlock-btn");
+      const passInput = this.kd_getScopedElement("kd-lock-password-input");
       if (unlockBtn) {
         unlockBtn.disabled = true;
         unlockBtn.setAttribute("data-lockout", "true");
@@ -58706,8 +58809,8 @@ ${codeFrame}` : message);
     }
     kd_clearLockoutError() {
       this.kd_showError("");
-      const unlockBtn = document.getElementById("kd-unlock-btn");
-      const passInput = document.getElementById("kd-lock-password-input");
+      const unlockBtn = this.kd_getScopedElement("kd-unlock-btn");
+      const passInput = this.kd_getScopedElement("kd-lock-password-input");
       if (unlockBtn) {
         unlockBtn.disabled = false;
         unlockBtn.removeAttribute("data-lockout");
@@ -58736,7 +58839,7 @@ ${codeFrame}` : message);
       if (typeof document === "undefined") return;
       this.kd_visibilitySecurityHandler = () => {
         if (document.visibilityState === "hidden") {
-          const overlay = document.getElementById("kd-lock-screen");
+          const overlay = this.kd_getOverlayContainer();
           if (overlay) {
             overlay.querySelectorAll("input").forEach((input) => {
               input.value = "";
@@ -58747,7 +58850,7 @@ ${codeFrame}` : message);
       document.addEventListener("visibilitychange", this.kd_visibilitySecurityHandler);
     }
     kd_setupTouchMovePrevention() {
-      const overlay = document.getElementById("kd-lock-screen");
+      const overlay = this.kd_getOverlayContainer();
       if (!overlay) return;
       this.kd_touchMoveHandler = (evt) => {
         const targetEl = evt.target;
@@ -58765,7 +58868,7 @@ ${codeFrame}` : message);
         window.removeEventListener("keydown", this.kd_focusTrapHandler, true);
       }
       this.kd_focusTrapHandler = (evt) => {
-        const overlay = document.getElementById("kd-lock-screen");
+        const overlay = this.kd_getOverlayContainer();
         if (!overlay) return;
         if (evt.key === "Tab") {
           const activeView = overlay.querySelector(".kd-view.active");
@@ -58803,7 +58906,7 @@ ${codeFrame}` : message);
       window.addEventListener("keydown", this.kd_focusTrapHandler, true);
     }
     kd_bindEvents() {
-      const lockScreen = document.getElementById("kd-lock-screen");
+      const lockScreen = this.kd_getOverlayContainer();
       if (!lockScreen) return;
       const lockPanel = lockScreen.querySelector(".kd-lock-panel");
       if (lockPanel) {
@@ -58945,7 +59048,7 @@ ${codeFrame}` : message);
       });
     }
     kd_switchView(viewId) {
-      const overlay = document.getElementById("kd-lock-screen");
+      const overlay = this.kd_getOverlayContainer();
       if (!overlay) return;
       this.kd_activeViewId = viewId;
       overlay.querySelectorAll(".kd-view").forEach((v) => v.classList.remove("active"));
@@ -58979,6 +59082,7 @@ ${codeFrame}` : message);
       this.kd_lockoutTimerId = null;
       this.kd_lastAlertTimestamp = 0;
       this.kd_autoLockTracker = null;
+      this.kd_domVault = null;
       this.kd_tamperGuard = null;
       this.kd_alarmSystem = null;
       this.kd_ui = null;
@@ -59003,6 +59107,13 @@ ${codeFrame}` : message);
       if (this.kd_alarmSystem) {
         this.kd_alarmSystem.kd_stopAlarm();
         this.kd_alarmSystem = null;
+      }
+      if (this.kd_domVault) {
+        this.kd_domVault.kd_restore();
+        this.kd_domVault = null;
+      }
+      if (this.kd_options.enableDomVault) {
+        this.kd_domVault = new kd_DomVault(this.kd_options.domVaultTarget);
       }
       if (this.kd_options.passwordHash) {
         this.kd_passwordHash = this.kd_options.passwordHash;
@@ -59039,9 +59150,10 @@ ${codeFrame}` : message);
           this.kd_passwordHash = newHash;
           this.kd_options.passwordHash = newHash;
         },
-        this.kd_options.channelName
+        this.kd_options.channelName,
+        this.kd_options.lockOnBlur ?? false
       );
-      if (this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0) {
+      if (this.kd_options.autoLockMinutes && this.kd_options.autoLockMinutes > 0 || this.kd_options.lockOnBlur) {
         this.kd_autoLockTracker.kd_start();
       }
       this.kd_restoreSessionLockState();
@@ -59062,6 +59174,9 @@ ${codeFrame}` : message);
       if (this.kd_isLocked) return;
       this.kd_isLocked = true;
       this.kd_lastIntruderSnapshot = null;
+      if (this.kd_domVault) {
+        this.kd_domVault.kd_detach();
+      }
       if (this.kd_autoLockTracker) {
         this.kd_autoLockTracker.kd_setLockedState(true);
         this.kd_autoLockTracker.kd_resetActivityTimestamp();
@@ -59086,6 +59201,9 @@ ${codeFrame}` : message);
       this.kd_failedAttemptsCount = 0;
       this.kd_lockoutCount = 0;
       this.kd_lockoutUntilTimestamp = 0;
+      if (this.kd_domVault) {
+        this.kd_domVault.kd_restore();
+      }
       if (this.kd_lockoutTimerId) {
         clearInterval(this.kd_lockoutTimerId);
         this.kd_lockoutTimerId = null;
@@ -59128,8 +59246,21 @@ ${codeFrame}` : message);
       } else if (newOptions.passwordHash) {
         this.kd_passwordHash = newOptions.passwordHash;
       }
-      if (newOptions.autoLockMinutes !== void 0 && this.kd_autoLockTracker) {
-        this.kd_autoLockTracker.kd_updateConfig(newOptions.autoLockMinutes);
+      if (this.kd_autoLockTracker) {
+        this.kd_autoLockTracker.kd_updateConfig(
+          this.kd_options.autoLockMinutes || 0,
+          this.kd_options.lockOnBlur
+        );
+      }
+      if (newOptions.enableDomVault !== void 0 || newOptions.domVaultTarget !== void 0) {
+        if (this.kd_options.enableDomVault) {
+          if (!this.kd_domVault) {
+            this.kd_domVault = new kd_DomVault(this.kd_options.domVaultTarget);
+          }
+        } else if (this.kd_domVault) {
+          this.kd_domVault.kd_restore();
+          this.kd_domVault = null;
+        }
       }
       if (this.kd_alarmSystem) {
         this.kd_alarmSystem.kd_stopAlarm();
@@ -59540,20 +59671,20 @@ ${codeFrame}` : message);
     }
     static async hashPassword(password, salt, iterations = 1e5) {
       if (salt) {
-        return await kd_pbkdf2(password, salt, iterations);
+        return await kd_workerCrypto.kd_pbkdf2(password, salt, iterations);
       }
-      return await kd_sha256(password);
+      return await kd_workerCrypto.kd_sha256(password);
     }
     static async pbkdf2(password, salt, iterations = 1e5) {
-      return await kd_pbkdf2(password, salt, iterations);
+      return await kd_workerCrypto.kd_pbkdf2(password, salt, iterations);
     }
     static async hashRecoveryAnswer(answer, salt, iterations = 1e5) {
       if (!answer || !answer.trim()) return "";
       const normalized = answer.toLowerCase().trim();
       if (salt) {
-        return await kd_pbkdf2(normalized, salt, iterations);
+        return await kd_workerCrypto.kd_pbkdf2(normalized, salt, iterations);
       }
-      return await kd_sha256(normalized);
+      return await kd_workerCrypto.kd_sha256(normalized);
     }
   };
 
